@@ -973,313 +973,338 @@ function ClientMaster({ clients, setClients, clusters }) {
 /* ═══════════════════ CLUSTER BOARD (unchanged from v2) ═══════════════════ */
 const CL_COLORS_BY_MODEL = { SDD:["#F59E0B","#D97706","#B45309"], AIR:["#06B6D4","#0891B2","#0E7490"], NDD:["#6366F1","#4F46E5","#4338CA"] };
 
-function ClusterBoard({ clients, clusters, setClusters, riders }) {
-  // Defensive checks
-  if (!clients || !Array.isArray(clients) || !clusters || !Array.isArray(clusters) || !riders || !Array.isArray(riders)) {
-    return (
-      <div style={{ padding:24, textAlign:"center" }}>
-        <div style={{ fontSize:18, fontWeight:700, marginBottom:8, color:"#F04438" }}>
-          Error Loading Cluster Board
-        </div>
-        <div style={{ fontSize:14, color:"#667085" }}>
-          Data is not available. Please refresh the page.
-        </div>
-        <button 
-          onClick={() => window.location.reload()}
-          style={{
-            marginTop:16,
-            padding:"10px 20px",
-            background:"#F59E0B",
-            color:"#fff",
-            border:"none",
-            borderRadius:8,
-            cursor:"pointer",
-            fontWeight:600
-          }}
-        >
-          Refresh Page
-        </button>
-      </div>
-    );
-  }
+/* ═══════════════════ SIMPLE CLUSTER BOARD (CRASH-PROOF) ═══════════════════ */
+function ClusterBoard({ clients = [], clusters = [], setClusters, riders = [] }) {
+  // Defensive: ensure we have arrays
+  const safeClients = Array.isArray(clients) ? clients : [];
+  const safeClusters = Array.isArray(clusters) ? clusters : [];
+  const safeRiders = Array.isArray(riders) ? riders : [];
 
   const [activeModel, setActiveModel] = useState("SDD");
-  const [showCreate, setShowCreate]   = useState(false);
-  const [showAssign, setShowAssign]   = useState(null);
-  const [newName, setNewName]         = useState("");
-  const [selC, setSelC]               = useState([]);
 
-  const m = MODELS[activeModel];
-  const eligibleClients = clients.filter(c=>c && c.models && c.models[activeModel]?.enabled);
-  const modelClusters   = clusters.filter(c=>c && c.model===activeModel);
-  const modelCounts = Object.keys(MODELS).reduce((acc,mk)=>({...acc,[mk]:clusters.filter(c=>c && c.model===mk).length}),{});
-  const unassignedInModel = eligibleClients.filter(c=>!modelClusters.some(cl=>cl && cl.clientIds && cl.clientIds.includes(c.id)));
-
-  const toggleClient = id => setSelC(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
-
-  const handleCreate = async () => {
-    if (!newName) return;
-    const idx = modelClusters.length % 3;
-    const color = CL_COLORS_BY_MODEL[activeModel][idx];
-    const newCluster = { id:`CL${Date.now()}`, name:newName, model:activeModel, clientIds:selC, riderId:null, color };
-    if (supabase) {
-      await supabase.from('clusters').insert(newCluster);
-    }
-    setClusters(p=>[...p,newCluster]);
-    setNewName(""); setSelC([]); setShowCreate(false);
-  };
-
-  const handleAssign = async (clusterId, riderId) => {
-    // Remove rider from all clusters of this model first
-    const updates = clusters.map(cl=>cl.model===activeModel && cl.riderId===riderId ? {...cl,riderId:null} : cl);
-    const final = updates.map(cl=>cl.id===clusterId ? {...cl,riderId} : cl);
-    if (supabase) {
-      await supabase.from('clusters').upsert(final.filter(cl=>cl.model===activeModel));
-    }
-    setClusters(final);
-    setShowAssign(null);
-  };
-
-  const deleteCluster = async (id) => {
-    if (supabase) {
-      await supabase.from('clusters').delete().eq('id', id);
-    }
-    setClusters(p=>p.filter(c=>c.id!==id));
-  };
-
+  // Safe filtering
+  const modelClusters = safeClusters.filter(c => c && c.model === activeModel);
+  
   return (
-    <div style={{ padding:"22px 24px", overflowY:"auto", flex:1 }}>
-      {/* Model selector */}
-      <div style={{ background:"#fff", border:`1px solid ${C.border}`, borderRadius:12,
-        padding:"14px 18px", marginBottom:18, display:"flex", alignItems:"center", gap:14 }}>
-        <div style={{ fontSize:11, fontWeight:700, color:C.textMuted, letterSpacing:"0.06em",
-          textTransform:"uppercase", whiteSpace:"nowrap", flexShrink:0 }}>Select Model</div>
-        <div style={{ flex:1 }}>
-          <ModelTabs active={activeModel} onChange={m=>{ setActiveModel(m); setSelC([]); }} counts={modelCounts}/>
-        </div>
-        <div style={{ width:1, height:28, background:C.border }}/>
-        <div style={{ textAlign:"right", flexShrink:0 }}>
-          <div style={{ fontSize:12, fontWeight:700, color:m.text }}>{m.icon} {m.label}</div>
-          <div style={{ fontSize:10, color:C.textMuted }}>{m.desc}</div>
-        </div>
+    <div style={{ padding: "22px 24px", overflowY: "auto", flex: 1 }}>
+      {/* Header */}
+      <div style={{ 
+        background: "#fff", 
+        border: "1px solid #E5E7EB", 
+        borderRadius: 12,
+        padding: "20px", 
+        marginBottom: 20 
+      }}>
+        <h2 style={{ 
+          fontSize: 24, 
+          fontWeight: 800, 
+          margin: 0, 
+          marginBottom: 8,
+          color: "#111827" 
+        }}>
+          Cluster Board
+        </h2>
+        <p style={{ 
+          fontSize: 14, 
+          color: "#6B7280", 
+          margin: 0 
+        }}>
+          Manage and view delivery clusters
+        </p>
       </div>
 
-      {/* Stats strip */}
-      <div style={{ display:"flex", gap:10, marginBottom:18 }}>
-        {[
-          [`${modelClusters.length}`, "Clusters", m.color],
-          [`${eligibleClients.length}`, `${activeModel} Clients`, C.textSub],
-          [`${modelClusters.filter(c=>c && c.riderId).length}`, "Assigned Riders", C.success],
-          [`${unassignedInModel.length}`, "Unassigned Clients", unassignedInModel.length?C.danger:C.success],
-        ].map(([v,l,color])=>(
-          <div key={l} style={{ background:"#fff", border:`1px solid ${C.border}`, borderRadius:9,
-            padding:"10px 16px", display:"flex", alignItems:"center", gap:8 }}>
-            <span style={{ fontFamily:"Syne,sans-serif", fontSize:18, fontWeight:800, color }}>{v}</span>
-            <span style={{ fontSize:11, color:C.textMuted }}>{l}</span>
-          </div>
-        ))}
-        <div style={{ marginLeft:"auto" }}>
-          <Btn variant="primary" icon={Plus} onClick={()=>setShowCreate(true)}
-            ex={{ background:m.color }}>
-            New {activeModel} Cluster
-          </Btn>
-        </div>
-      </div>
-
-      {/* Cluster Cards */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))", gap:14 }}>
-        {modelClusters.map(cl => {
-          if (!cl || !cl.id) return null;
-          const clClients = (cl.clientIds || []).map(id=>clients.find(c=>c && c.id===id)).filter(Boolean);
-          const rider = (riders || []).find(r=>r && r.id===cl.riderId);
+      {/* Model Tabs */}
+      <div style={{ 
+        display: "flex", 
+        gap: 12, 
+        marginBottom: 20,
+        background: "#fff",
+        padding: "16px",
+        borderRadius: 12,
+        border: "1px solid #E5E7EB"
+      }}>
+        {Object.keys(MODELS).map(modelKey => {
+          const model = MODELS[modelKey];
+          const count = safeClusters.filter(c => c && c.model === modelKey).length;
+          const isActive = activeModel === modelKey;
+          
           return (
-            <div key={cl.id} style={{ background:"#fff", borderRadius:14,
-              border:`1px solid ${C.border}`, overflow:"hidden", display:"flex", flexDirection:"column",
-              boxShadow:"0 1px 3px rgba(0,0,0,0.04)" }}>
-              {/* Header */}
-              <div style={{ background:cl.color, padding:"13px 16px", display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
-                <div>
-                  <div style={{ color:"#fff", fontWeight:800, fontSize:15, fontFamily:"Syne,sans-serif" }}>{cl.name}</div>
-                  <div style={{ color:"rgba(255,255,255,0.6)", fontSize:10, marginTop:2 }}>
-                    {clClients.length} client{clClients.length!==1?"s":""} · {m.desc}
-                  </div>
-                </div>
-                <div style={{ display:"flex", gap:6, alignItems:"center" }}>
-                  <span style={{ background:"rgba(0,0,0,0.18)", borderRadius:6, padding:"3px 8px",
-                    color:"rgba(255,255,255,0.75)", fontSize:9, fontWeight:800,
-                    fontFamily:"'JetBrains Mono',monospace" }}>{cl.id}</span>
-                  <button onClick={()=>deleteCluster(cl.id)}
-                    style={{ background:"rgba(0,0,0,0.18)", border:"none", borderRadius:6,
-                      padding:"4px", cursor:"pointer", color:"rgba(255,255,255,0.7)", display:"flex" }}>
-                    <Trash2 size={11}/>
-                  </button>
-                </div>
-              </div>
-
-              {/* Clients */}
-              <div style={{ padding:"12px 14px", borderBottom:`1px solid ${C.border}`, flex:1 }}>
-                <div style={{ fontSize:9, fontWeight:700, color:C.textMuted, letterSpacing:"0.1em",
-                  textTransform:"uppercase", marginBottom:7 }}>Clients & Cutoffs</div>
-                <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-                  {clClients.map(c => {
-                    if (!c || !c.id || !c.name) return null;
-                    return (
-                    <div key={c.id} style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
-                      background:"#F9FAFB", borderRadius:7, padding:"6px 10px" }}>
-                      <div style={{ fontSize:11, fontWeight:600, color:C.text, overflow:"hidden",
-                        textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>{(c.name || "").split(" - ")[0]}</div>
-                      <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:9, color:C.textMuted,
-                        background:"#fff", border:`1px solid ${C.border}`, padding:"2px 6px", borderRadius:5,
-                        flexShrink:0, marginLeft:6 }}>{(c.models && c.models[activeModel]?.cutoff)||"—"}</span>
-                    </div>
-                    );
-                  })}
-                  {!clClients.length && <div style={{ fontSize:11, color:C.textMuted }}>No clients assigned yet</div>}
-                </div>
-              </div>
-
-              {/* Rider */}
-              <div style={{ padding:"11px 14px" }}>
-                <div style={{ fontSize:9, fontWeight:700, color:C.textMuted, letterSpacing:"0.1em",
-                  textTransform:"uppercase", marginBottom:7 }}>Assigned Rider</div>
-                {rider && rider.name ? (
-                  <div style={{ display:"flex", alignItems:"center", gap:9 }}>
-                    <Av name={rider.name} size={34} bg={cl.color}/>
-                    <div style={{ flex:1 }}>
-                      <div style={{ fontSize:13, fontWeight:600, color:C.text }}>{rider.name || "Unknown"}</div>
-                      <div style={{ fontSize:10, color:C.textMuted }}>{rider.code || ""} · Shift {rider.shift || "?"} · {rider.vehicle || ""}</div>
-                    </div>
-                    <button onClick={()=>setShowAssign(cl.id)}
-                      style={{ background:"#F9FAFB", border:`1px solid ${C.border}`, borderRadius:6,
-                        padding:"4px 10px", cursor:"pointer", fontSize:11, fontWeight:600,
-                        color:C.textMuted, fontFamily:"'Plus Jakarta Sans',sans-serif" }}>Reassign</button>
-                  </div>
-                ) : (
-                  <button onClick={()=>setShowAssign(cl.id)}
-                    style={{ width:"100%", background:"#FAFBFC", border:`1.5px dashed ${C.border}`,
-                      borderRadius:8, padding:"10px", cursor:"pointer", color:C.textMuted, fontSize:12,
-                      fontFamily:"'Plus Jakarta Sans',sans-serif", display:"flex", alignItems:"center",
-                      justifyContent:"center", gap:6 }}>
-                    <Plus size={13}/> Assign Rider
-                  </button>
-                )}
-              </div>
-            </div>
+            <button
+              key={modelKey}
+              onClick={() => setActiveModel(modelKey)}
+              style={{
+                padding: "10px 16px",
+                borderRadius: 8,
+                border: `2px solid ${isActive ? model.border : "#E5E7EB"}`,
+                background: isActive ? model.bg : "#fff",
+                color: isActive ? model.text : "#6B7280",
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                transition: "all 0.2s"
+              }}
+            >
+              <span style={{ fontSize: 16 }}>{model.icon}</span>
+              <span>{model.short}</span>
+              <span style={{ 
+                background: isActive ? "rgba(0,0,0,0.1)" : "#F3F4F6",
+                padding: "2px 8px",
+                borderRadius: 12,
+                fontSize: 12,
+                fontWeight: 700
+              }}>
+                {count}
+              </span>
+            </button>
           );
         })}
-
-        {/* Unassigned warning */}
-        {unassignedInModel.length > 0 && (
-          <div style={{ background:"#FFFBF5", border:`1.5px dashed ${m.border}`, borderRadius:14, padding:14 }}>
-            <div style={{ fontSize:12, fontWeight:700, color:m.text, display:"flex", alignItems:"center", gap:6, marginBottom:8 }}>
-              <AlertTriangle size={13}/> {unassignedInModel.length} {activeModel} Client{unassignedInModel.length!==1?"s":""} Not Yet Clustered
-            </div>
-            <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
-              {unassignedInModel.map(c => (
-                <div key={c.id} style={{ background:m.bg, border:`1px solid ${m.border}`, borderRadius:6,
-                  padding:"3px 10px", fontSize:11, color:m.text, fontWeight:500 }}>
-                  {c.name.split(" - ")[0]}
-                  <span style={{ marginLeft:6, opacity:0.6, fontSize:9 }}>{c.models[activeModel]?.cutoff}</span>
-                </div>
-              ))}
-            </div>
-            <div style={{ fontSize:10, color:C.textMuted, marginTop:8 }}>Create a new {activeModel} cluster to include these clients.</div>
-          </div>
-        )}
       </div>
 
-      {/* Create Cluster Modal */}
-      <Modal show={showCreate} onClose={()=>{ setShowCreate(false); setSelC([]); setNewName(""); }}
-        title={`Create New ${activeModel} Cluster`} width={560}>
-        <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px",
-          background:m.bg, border:`1px solid ${m.border}`, borderRadius:9, marginBottom:14 }}>
-          <span style={{ fontSize:20 }}>{m.icon}</span>
-          <div>
-            <div style={{ fontSize:13, fontWeight:700, color:m.text }}>{m.label} Cluster</div>
-            <div style={{ fontSize:10, color:m.text, opacity:0.7 }}>{m.desc}</div>
+      {/* Stats */}
+      <div style={{ 
+        display: "grid", 
+        gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", 
+        gap: 12,
+        marginBottom: 20
+      }}>
+        <div style={{
+          background: "#fff",
+          padding: "16px",
+          borderRadius: 12,
+          border: "1px solid #E5E7EB"
+        }}>
+          <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 4, fontWeight: 600 }}>
+            Total Clusters
+          </div>
+          <div style={{ fontSize: 32, fontWeight: 800, color: "#111827" }}>
+            {modelClusters.length}
           </div>
         </div>
-        <FF label="Cluster Name" required>
-          <FI value={newName} onChange={setNewName} placeholder={`e.g. ${activeModel}-Noida-2, ${activeModel}-Gurgaon-1`}/>
-        </FF>
-        <FF label={`Select Clients (${activeModel}-enabled only · ${selC.length} selected)`}>
-          <div style={{ border:`1px solid ${C.border}`, borderRadius:9, maxHeight:280, overflowY:"auto" }}>
-            {eligibleClients.length === 0 ? (
-              <div style={{ padding:"20px", textAlign:"center", color:C.textMuted, fontSize:12 }}>
-                No clients enabled for {activeModel}. Enable {activeModel} in client settings first.
-              </div>
-            ) : eligibleClients.map(c => {
-              const inOther = modelClusters.some(cl=>cl.clientIds.includes(c.id));
-              const sel = selC.includes(c.id);
-              return (
-                <div key={c.id} onClick={()=>!inOther&&toggleClient(c.id)}
-                  style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 14px",
-                    borderBottom:`1px solid ${C.border}`, cursor:inOther?"not-allowed":"pointer",
-                    background:sel?"#EFF6FF":inOther?"#FAFBFC":"#fff", opacity:inOther?0.5:1 }}>
-                  <div style={{ width:16, height:16, borderRadius:4, border:`2px solid ${sel?m.color:C.border}`,
-                    background:sel?m.color:"#fff", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                    {sel && <Check size={9} color="#fff"/>}
-                  </div>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontSize:13, fontWeight:600, color:C.text }}>{c.name}</div>
-                    <div style={{ fontSize:10, color:C.textMuted }}>
-                      {m.icon} Cutoff: <span style={{ fontFamily:"'JetBrains Mono',monospace", color:m.text, fontWeight:600 }}>
-                        {c.models[activeModel]?.cutoff || "Not set"}
-                      </span> · SPOC: {c.spoc}
-                    </div>
-                  </div>
-                  {inOther && <span style={{ fontSize:9, color:C.textMuted, fontStyle:"italic" }}>Already in cluster</span>}
-                </div>
-              );
-            })}
+        
+        <div style={{
+          background: "#fff",
+          padding: "16px",
+          borderRadius: 12,
+          border: "1px solid #E5E7EB"
+        }}>
+          <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 4, fontWeight: 600 }}>
+            Assigned Riders
           </div>
-        </FF>
-        <div style={{ display:"flex", gap:10, marginTop:8 }}>
-          <Btn variant="secondary" onClick={()=>{ setShowCreate(false); setSelC([]); setNewName(""); }} ex={{ flex:1 }}>Cancel</Btn>
-          <Btn variant="primary" onClick={handleCreate} ex={{ flex:1, background:m.color }}>
-            Create {activeModel} Cluster ({selC.length} clients)
-          </Btn>
+          <div style={{ fontSize: 32, fontWeight: 800, color: "#10B981" }}>
+            {modelClusters.filter(c => c && c.riderId).length}
+          </div>
         </div>
-      </Modal>
 
-      {/* Assign Rider Modal */}
-      <Modal show={!!showAssign} onClose={()=>setShowAssign(null)} title={`Assign Rider — ${activeModel} Cluster`} width={420}>
-        <div style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 12px",
-          background:m.bg, border:`1px solid ${m.border}`, borderRadius:8, marginBottom:12, fontSize:11, color:m.text, fontWeight:600 }}>
-          {m.icon} Only Shift A riders should handle SDD/AIR · Shift B for NDD is recommended
+        <div style={{
+          background: "#fff",
+          padding: "16px",
+          borderRadius: 12,
+          border: "1px solid #E5E7EB"
+        }}>
+          <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 4, fontWeight: 600 }}>
+            Total Clients
+          </div>
+          <div style={{ fontSize: 32, fontWeight: 800, color: "#3B82F6" }}>
+            {safeClients.filter(c => c && c.models && c.models[activeModel]?.enabled).length}
+          </div>
         </div>
-        <div onClick={()=>handleAssign(showAssign, null)}
-          style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 14px",
-            border:`1px solid ${C.dangerBg}`, borderRadius:8, cursor:"pointer", color:C.danger, fontSize:13, fontWeight:600, marginBottom:10 }}>
-          <XCircle size={14}/> Remove Assignment
-        </div>
-        {riders.map(r => {
-          const busy = clusters.some(c=>c.model===activeModel && c.riderId===r.id && c.id!==showAssign);
-          const shift_mismatch = (activeModel==="NDD" && r.shift==="A") || ((activeModel==="SDD"||activeModel==="AIR") && r.shift==="B");
-          return (
-            <div key={r.id} onClick={()=>!busy&&handleAssign(showAssign,r.id)}
-              style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 14px",
-                border:`1px solid ${C.border}`, borderRadius:8, marginBottom:6,
-                cursor:busy?"not-allowed":"pointer", background:busy?"#FAFBFC":"#fff", opacity:busy?0.55:1 }}>
-              <Av name={r.name} size={36} bg={busy?"#94A3B8":m.color}/>
-              <div style={{ flex:1 }}>
-                <div style={{ fontSize:13, fontWeight:600, color:C.text, display:"flex", alignItems:"center", gap:7 }}>
-                  {r.name}
-                  {shift_mismatch && !busy && (
-                    <span style={{ fontSize:9, background:C.warningBg, color:C.warning,
-                      padding:"1px 6px", borderRadius:6, fontWeight:700 }}>⚠ Shift mismatch</span>
+      </div>
+
+      {/* Clusters Grid */}
+      <div style={{ 
+        display: "grid", 
+        gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", 
+        gap: 16 
+      }}>
+        {modelClusters.length === 0 ? (
+          <div style={{
+            gridColumn: "1 / -1",
+            background: "#F9FAFB",
+            padding: 40,
+            borderRadius: 12,
+            textAlign: "center",
+            border: "2px dashed #E5E7EB"
+          }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>📦</div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: "#111827", marginBottom: 6 }}>
+              No {activeModel} Clusters
+            </div>
+            <div style={{ fontSize: 14, color: "#6B7280" }}>
+              Create a cluster to get started
+            </div>
+          </div>
+        ) : (
+          modelClusters.map(cluster => {
+            if (!cluster || !cluster.id) return null;
+            
+            // Safe data extraction
+            const clusterName = cluster.name || "Unnamed Cluster";
+            const clusterColor = cluster.color || "#6B7280";
+            const clientIds = Array.isArray(cluster.clientIds) ? cluster.clientIds : [];
+            const riderId = cluster.riderId;
+            
+            // Find clients safely
+            const clusterClients = clientIds
+              .map(id => safeClients.find(c => c && c.id === id))
+              .filter(Boolean);
+            
+            // Find rider safely
+            const rider = riderId ? safeRiders.find(r => r && r.id === riderId) : null;
+            
+            return (
+              <div
+                key={cluster.id}
+                style={{
+                  background: "#fff",
+                  borderRadius: 12,
+                  border: "1px solid #E5E7EB",
+                  overflow: "hidden",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
+                }}
+              >
+                {/* Header */}
+                <div style={{
+                  background: clusterColor,
+                  padding: "16px",
+                  color: "#fff"
+                }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>
+                    {clusterName}
+                  </div>
+                  <div style={{ fontSize: 12, opacity: 0.8 }}>
+                    {clientIds.length} client{clientIds.length !== 1 ? 's' : ''} • {MODELS[activeModel]?.short || activeModel}
+                  </div>
+                </div>
+
+                {/* Clients */}
+                <div style={{ padding: "16px", borderBottom: "1px solid #E5E7EB" }}>
+                  <div style={{ 
+                    fontSize: 11, 
+                    fontWeight: 700, 
+                    color: "#6B7280", 
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                    marginBottom: 10 
+                  }}>
+                    Clients
+                  </div>
+                  {clusterClients.length === 0 ? (
+                    <div style={{ fontSize: 12, color: "#9CA3AF", fontStyle: "italic" }}>
+                      No clients assigned
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {clusterClients.map(client => {
+                        if (!client) return null;
+                        const clientName = client.name || "Unknown Client";
+                        const cutoff = client.models && client.models[activeModel] 
+                          ? client.models[activeModel].cutoff 
+                          : "—";
+                        
+                        return (
+                          <div
+                            key={client.id}
+                            style={{
+                              background: "#F9FAFB",
+                              padding: "8px 12px",
+                              borderRadius: 6,
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center"
+                            }}
+                          >
+                            <div style={{ fontSize: 12, fontWeight: 600, color: "#111827" }}>
+                              {clientName.split(" - ")[0]}
+                            </div>
+                            <div style={{ 
+                              fontSize: 10, 
+                              color: "#6B7280",
+                              fontFamily: "monospace",
+                              background: "#fff",
+                              padding: "3px 8px",
+                              borderRadius: 4,
+                              border: "1px solid #E5E7EB"
+                            }}>
+                              {cutoff}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   )}
                 </div>
-                <div style={{ fontSize:10, color:C.textMuted }}>{r.code} · Shift {r.shift} · {r.vehicle}</div>
+
+                {/* Rider */}
+                <div style={{ padding: "16px" }}>
+                  <div style={{ 
+                    fontSize: 11, 
+                    fontWeight: 700, 
+                    color: "#6B7280", 
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                    marginBottom: 10 
+                  }}>
+                    Assigned Rider
+                  </div>
+                  {rider ? (
+                    <div style={{
+                      background: "#F9FAFB",
+                      padding: "12px",
+                      borderRadius: 8,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12
+                    }}>
+                      <div style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: "50%",
+                        background: clusterColor,
+                        color: "#fff",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 16,
+                        fontWeight: 700
+                      }}>
+                        {(rider.name || "?").charAt(0).toUpperCase()}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>
+                          {rider.name || "Unknown"}
+                        </div>
+                        <div style={{ fontSize: 11, color: "#6B7280" }}>
+                          {rider.code || ""} • Shift {rider.shift || "?"} 
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{
+                      background: "#F9FAFB",
+                      padding: "12px",
+                      borderRadius: 8,
+                      border: "2px dashed #E5E7EB",
+                      textAlign: "center",
+                      color: "#9CA3AF",
+                      fontSize: 12,
+                      fontStyle: "italic"
+                    }}>
+                      No rider assigned
+                    </div>
+                  )}
+                </div>
               </div>
-              {busy ? <span style={{ fontSize:9, color:C.textMuted }}>In use</span> : <ChevronRight size={13} color={C.textMuted}/>}
-            </div>
-          );
-        })}
-      </Modal>
+            );
+          })
+        )}
+      </div>
     </div>
   );
 }
+
 
 /* ═══════════════════ RIDER MANAGEMENT (same as v2) ═══════════════════ */
 function RiderMgmt({ riders, setRiders, clusters, setClusters }) {
