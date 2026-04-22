@@ -13,8 +13,8 @@ import {
 
 /* ═══════════════════ SUPABASE CONFIG ═══════════════════ */
 // TODO: Add your Supabase credentials after setup
-const SUPABASE_URL = null; // "https://your-project.supabase.co"
-const SUPABASE_KEY = null; // "your-anon-key"
+const SUPABASE_URL = "https://ivkektiowfhmvkjwzgcz.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2a2VrdGlvd2ZobXZrand6Z2N6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3NTAzMDEsImV4cCI6MjA5MjMyNjMwMX0.5wt7bNO5Z0mFVTHi6X8Tj8nySy6WjAWCQ8z9cIKmUQw";
 
 // Supabase client (will be initialized when credentials added)
 const supabase = SUPABASE_URL && SUPABASE_KEY ? null : null;
