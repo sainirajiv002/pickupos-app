@@ -437,6 +437,7 @@ const NAV = [
   { id:"map",       icon:Map,             label:"Live Tracking"     },
   { id:"reports",   icon:BarChart2,       label:"Reports"           },
   { id:"roles",     icon:Shield,          label:"User & Roles"      },
+  { id:"users",     icon:Users,           label:"User Management"   },
 ];
 
 function Sidebar({ view, setView, role, setRole }) {
@@ -511,6 +512,7 @@ function Sidebar({ view, setView, role, setRole }) {
 const TITLES = {
   dashboard:"Dashboard", clients:"Client Master", clusters:"Cluster Board",
   riders:"Rider Management", map:"Live Tracking", reports:"Reports & Analytics", roles:"User & Roles",
+  users:"User Management",
 };
 
 function TopBar({ view, role }) {
