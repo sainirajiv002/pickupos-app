@@ -1345,133 +1345,18 @@ function m_text(s) { return s==="A"?MODELS.SDD.text:MODELS.NDD.text; }
 
 /* ═══════════════════ LIVE MAP WITH REAL GPS ═══════════════════ */
 function LiveMap({ riders, clusters, pickups, riderLocations }) {
-  const [sel, setSel]      = useState(null);
+  const [sel, setSel] = useState(null);
   const [modelFilter, setMF] = useState("ALL");
-  const [mapReady, setMapReady] = useState(false);
-  const mapRef = React.useRef(null);
-  const markersRef = React.useRef({});
 
-  // Check if Leaflet is ready
-  useEffect(() => {
-    const checkLeaflet = setInterval(() => {
-      if (window.L) {
-        setMapReady(true);
-        clearInterval(checkLeaflet);
-      }
-    }, 100);
-    
-    return () => clearInterval(checkLeaflet);
-  }, []);
-
-  // Initialize Leaflet map
-  useEffect(() => {
-    if (!mapReady || mapRef.current) return;
-    
-    try {
-      // Create map centered on NCR
-      const map = window.L.map('live-map').setView([28.6139, 77.2090], 10);
-      
-      // Add OpenStreetMap tiles
-      window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-      }).addTo(map);
-      
-      mapRef.current = map;
-    } catch (error) {
-      console.error('Map initialization error:', error);
-    }
-    
-    return () => {
-      if (mapRef.current) {
-        try {
-          mapRef.current.remove();
-          mapRef.current = null;
-        } catch (e) {
-          console.error('Map cleanup error:', e);
-        }
-      }
-    };
-  }, [mapReady]);
-
-  // Update rider markers
-  useEffect(() => {
-    if (!mapRef.current || !window.L || !mapReady) return;
-
-    try {
-      const visRiders = modelFilter === "ALL" ? riders
-        : riders.filter(r=>clusters.some(c=>c.riderId===r.id && c.model===modelFilter));
-
-      // Clear old markers
-      Object.values(markersRef.current).forEach(m => {
-        try { m.remove(); } catch (e) {}
-      });
-      markersRef.current = {};
-
-      // Add new markers
-      visRiders.forEach(rider => {
-        const loc = riderLocations[rider.id];
-        if (!loc) return;
-
-        const status = getRiderStatus(rider.id, clusters, pickups);
-        const cl = clusters.find(c=>c.riderId===rider.id);
-        const DOT_C = { completed:"#12B76A","in-progress":"#F79009",pending:"#F04438",idle:"#98A2B3" };
-        const color = DOT_C[status];
-
-        const icon = window.L.divIcon({
-          className: 'rider-marker',
-          html: `<div style="width:32px;height:32px;border-radius:50%;background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,0.3);font-family:'Plus Jakarta Sans',sans-serif">${rider.code.split("-")[1]}</div>`,
-          iconSize: [32, 32]
-        });
-
-        const marker = window.L.marker([loc.lat, loc.lng], { icon })
-          .addTo(mapRef.current)
-          .on('click', () => setSel(rider.id));
-
-        markersRef.current[rider.id] = marker;
-      });
-    } catch (error) {
-      console.error('Marker update error:', error);
-    }
-  }, [riders, clusters, riderLocations, modelFilter, pickups, mapReady]);
+  const visRiders = modelFilter === "ALL" ? riders
+    : riders.filter(r=>clusters.some(c=>c.riderId===r.id && c.model===modelFilter));
 
   const selRider = sel ? riders.find(r=>r.id===sel) : null;
   const selClusters = selRider ? clusters.filter(c=>c.riderId===selRider.id) : [];
 
-  // Show loading state while Leaflet loads
-  if (!mapReady) {
-    return (
-      <div style={{ 
-        padding:"22px 24px", 
-        flex:1, 
-        display:"flex", 
-        alignItems:"center", 
-        justifyContent:"center",
-        flexDirection:"column",
-        gap: 16
-      }}>
-        <div style={{ 
-          width: 48, 
-          height: 48, 
-          border: "4px solid #f3f4f6",
-          borderTop: "4px solid #F59E0B",
-          borderRadius: "50%",
-          animation: "spin 1s linear infinite"
-        }}/>
-        <div style={{ fontSize: 14, color: "#667085", fontWeight: 500 }}>
-          Loading map...
-        </div>
-        <style>{`
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-        `}</style>
-      </div>
-    );
-  }
-
   return (
-    <div style={{ padding:"22px 24px", flex:1, overflow:"hidden", display:"flex", flexDirection:"column", gap:14 }}>
+    <div style={{ padding:"22px 24px", flex:1, overflow:"auto", display:"flex", flexDirection:"column", gap:14 }}>
+      {/* Filters */}
       <div style={{ display:"flex", alignItems:"center", gap:12 }}>
         <div style={{ display:"flex", gap:6 }}>
           {["ALL",...Object.keys(MODELS)].map(mk => {
@@ -1499,15 +1384,198 @@ function LiveMap({ riders, clusters, pickups, riderLocations }) {
               </div>
             );
           })}
-          <Btn variant="ghost" icon={RefreshCw} size="sm" onClick={()=>window.location.reload()}>Refresh</Btn>
         </div>
       </div>
 
-      <div style={{ display:"flex", gap:14, flex:1, overflow:"hidden", minHeight:0 }}>
-        {/* Map */}
-        <div id="live-map" style={{ flex:1, borderRadius:12, border:`1px solid ${C.border}`, position:"relative", overflow:"hidden", minHeight: "400px" }}>
-          <div style={{ position:"absolute", bottom:10, right:14, background:"rgba(255,255,255,0.9)",
-            padding:"6px 10px", borderRadius:8, fontSize:9, color:C.textMuted, zIndex:1000,
+      {/* Rider List (temporary replacement for map) */}
+      <div style={{ 
+        flex: 1, 
+        background: "#fff", 
+        borderRadius: 12, 
+        border: `1px solid ${C.border}`,
+        padding: 20
+      }}>
+        <div style={{ 
+          textAlign: "center", 
+          padding: "40px 20px",
+          background: "#F9FAFB",
+          borderRadius: 8,
+          marginBottom: 20
+        }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>🗺️</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: C.text, marginBottom: 8 }}>
+            Live Tracking View
+          </div>
+          <div style={{ fontSize: 14, color: C.textMuted }}>
+            Showing {visRiders.length} riders {modelFilter !== "ALL" && `(${modelFilter} model)`}
+          </div>
+        </div>
+
+        {/* Rider Cards */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
+          {visRiders.map(rider => {
+            const status = getRiderStatus(rider.id, clusters, pickups);
+            const cl = clusters.find(c=>c.riderId===rider.id);
+            const DOT_C = { completed:"#12B76A","in-progress":"#F79009",pending:"#F04438",idle:"#98A2B3" };
+            const color = DOT_C[status];
+            const loc = riderLocations[rider.id];
+
+            return (
+              <div 
+                key={rider.id}
+                onClick={() => setSel(rider.id)}
+                style={{ 
+                  background: sel === rider.id ? "#F9FAFB" : "#fff",
+                  border: `1px solid ${sel === rider.id ? C.accent : C.border}`,
+                  borderRadius: 10,
+                  padding: 14,
+                  cursor: "pointer",
+                  transition: "all 0.2s"
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                  <div style={{ 
+                    width: 36, 
+                    height: 36, 
+                    borderRadius: "50%",
+                    background: color,
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 12,
+                    fontWeight: 800
+                  }}>
+                    {rider.code.split("-")[1]}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>
+                      {rider.name}
+                    </div>
+                    <div style={{ fontSize: 11, color: C.textMuted }}>
+                      {rider.code}
+                    </div>
+                  </div>
+                </div>
+                
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <span style={{ 
+                    fontSize: 10, 
+                    padding: "3px 8px", 
+                    borderRadius: 6,
+                    background: DOT_C[status] + "20",
+                    color: DOT_C[status],
+                    fontWeight: 600,
+                    textTransform: "capitalize"
+                  }}>
+                    {status.replace("-", " ")}
+                  </span>
+                  {cl && (
+                    <span style={{ 
+                      fontSize: 10, 
+                      padding: "3px 8px", 
+                      borderRadius: 6,
+                      background: MODELS[cl.model]?.bg || "#F3F4F6",
+                      color: MODELS[cl.model]?.text || C.textMuted,
+                      fontWeight: 600
+                    }}>
+                      {MODELS[cl.model]?.short || cl.model}
+                    </span>
+                  )}
+                </div>
+
+                {loc && (
+                  <div style={{ 
+                    marginTop: 8, 
+                    paddingTop: 8, 
+                    borderTop: `1px solid ${C.border}`,
+                    fontSize: 10,
+                    color: C.textMuted
+                  }}>
+                    📍 Last seen: {new Date(loc.timestamp).toLocaleTimeString()}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {visRiders.length === 0 && (
+          <div style={{ 
+            textAlign: "center", 
+            padding: 40, 
+            color: C.textMuted,
+            fontSize: 14 
+          }}>
+            No riders found for this filter
+          </div>
+        )}
+      </div>
+
+      {/* Selected Rider Details */}
+      {selRider && (
+        <div style={{ 
+          position: "fixed",
+          top: 0,
+          right: 0,
+          width: 320,
+          height: "100vh",
+          background: "#fff",
+          borderLeft: `1px solid ${C.border}`,
+          padding: 20,
+          overflowY: "auto",
+          zIndex: 100,
+          boxShadow: "-4px 0 12px rgba(0,0,0,0.05)"
+        }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Rider Details</h3>
+            <button onClick={() => setSel(null)} style={{ 
+              background: "none", 
+              border: "none", 
+              cursor: "pointer",
+              padding: 4,
+              color: C.textMuted
+            }}>
+              <X size={18}/>
+            </button>
+          </div>
+
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 4 }}>
+              {selRider.name}
+            </div>
+            <div style={{ fontSize: 12, color: C.textMuted }}>
+              {selRider.code} • {selRider.phone}
+            </div>
+          </div>
+
+          {selClusters.length > 0 && (
+            <>
+              <div style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                Assigned Clusters ({selClusters.length})
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {selClusters.map(c => (
+                  <div key={c.id} style={{ 
+                    background: "#F9FAFB",
+                    padding: 10,
+                    borderRadius: 8,
+                    fontSize: 12
+                  }}>
+                    <div style={{ fontWeight: 600, marginBottom: 4 }}>{c.name}</div>
+                    <div style={{ color: C.textMuted, fontSize: 11 }}>
+                      {MODELS[c.model]?.label} • {c.clientIds?.length || 0} clients
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
             boxShadow:"0 2px 8px rgba(0,0,0,0.1)", fontWeight:600 }}>
             🟢 Live GPS Tracking
           </div>
