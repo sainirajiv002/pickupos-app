@@ -515,7 +515,7 @@ const TITLES = {
   users:"User Management",
 };
 
-function TopBar({ view, role }) {
+function TopBar({ view, role, user, onLogout }) {
   const t = new Date();
   return (
     <div style={{ height:56, background:"#fff", borderBottom:`1px solid ${C.border}`,
@@ -551,6 +551,33 @@ function TopBar({ view, role }) {
           padding:"3px 10px", borderRadius:20, letterSpacing:"0.06em", textTransform:"uppercase" }}>
           {role}
         </span>
+        <div style={{ width:1, height:22, background:C.border }}/>
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          <div style={{ textAlign:"right" }}>
+            <div style={{ fontSize:12, fontWeight:600, color:C.text }}>{user?.name || 'User'}</div>
+            <div style={{ fontSize:10, color:C.textMuted }}>{user?.email || ''}</div>
+          </div>
+          <button 
+            onClick={onLogout}
+            style={{ 
+              background:C.danger, 
+              border:"none", 
+              borderRadius:8,
+              padding:"8px 12px", 
+              cursor:"pointer", 
+              color:"#fff",
+              display:"flex",
+              alignItems:"center",
+              gap:6,
+              fontSize:12,
+              fontWeight:600
+            }}
+            title="Logout"
+          >
+            <LogOut size={14}/>
+            Logout
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -1791,7 +1818,7 @@ function MainApp({ user, onLogout }) {
       <div style={{ display:"flex", height:"100vh", overflow:"hidden", background:C.bg }}>
         <Sidebar view={view} setView={setView} role={role} setRole={setRole}/>
         <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minWidth:0 }}>
-          <TopBar view={view} role={role}/>
+          <TopBar view={view} role={role} user={user} onLogout={onLogout}/>
           <div style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"column" }}>
             {content[view]}
           </div>
