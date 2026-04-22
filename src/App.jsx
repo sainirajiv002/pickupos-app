@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import LoginPage from "./LoginPage.jsx";
+import UserManagement from "./UserManagement.jsx";
+import { createClient } from '@supabase/supabase-js';
 import {
   LayoutDashboard, Building2, GitFork, Users, Map, BarChart2,
   Shield, Search, Bell, Plus, Phone, Package, LogOut, Download,
@@ -1780,6 +1782,7 @@ function MainApp({ user, onLogout }) {
     map:       <LiveMap    riders={riders} clusters={clusters} pickups={pickups} riderLocations={riderLocations}/>,
     reports:   <Reports    clients={clients} clusters={clusters} riders={riders} pickups={pickups}/>,
     roles:     <UserRoles/>,
+    users:     <UserManagement supabase={supabase}/>,
   };
 
   return (
