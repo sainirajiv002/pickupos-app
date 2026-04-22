@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { LogIn, Eye, EyeOff, Shield, Truck } from "lucide-react";
 
-export default function LoginPage({ onLogin }) {
+/* ═══════════════════ LOGIN PAGE WITH REAL AUTH ═══════════════════ */
+export default function LoginPage({ onLogin, supabase }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -13,27 +14,39 @@ export default function LoginPage({ onLogin }) {
     setError("");
     setLoading(true);
 
-    // Demo users for testing
-    const demoUsers = {
-      "admin@shadowfax.in": { password: "admin123", role: "admin", name: "Admin User" },
-      "supervisor@shadowfax.in": { password: "super123", role: "supervisor", name: "Supervisor" },
-      "rider@shadowfax.in": { password: "rider123", role: "rider", name: "Rider" }
-    };
+    try {
+      // Query users table for authentication
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', email.toLowerCase())
+        .eq('password', password)
+        .single();
 
-    // Simple demo authentication
-    setTimeout(() => {
-      const user = demoUsers[email.toLowerCase()];
-      if (user && user.password === password) {
-        onLogin({
-          email: email,
-          role: user.role,
-          name: user.name
-        });
-      } else {
-        setError("Invalid email or password");
+      if (userError || !userData) {
+        throw new Error('Invalid email or password');
       }
+
+      // Check if user is active
+      if (!userData.active) {
+        throw new Error('Your account has been deactivated. Please contact admin.');
+      }
+
+      // Login successful
+      onLogin({
+        id: userData.id,
+        email: userData.email,
+        name: userData.name,
+        role: userData.role,
+        phone: userData.phone,
+        block: userData.block
+      });
+
+    } catch (error) {
+      setError(error.message || 'Invalid email or password');
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
   return (
@@ -229,29 +242,21 @@ export default function LoginPage({ onLogin }) {
             </button>
           </form>
 
-          {/* Demo Credentials */}
+          {/* Help Text */}
           <div style={{
             marginTop: "24px",
             padding: "16px",
             background: "#F9FAFB",
             borderRadius: "10px",
-            border: "1px solid #E4E7EC"
+            border: "1px solid #E4E7EC",
+            fontSize: "13px",
+            color: "#667085",
+            textAlign: "center"
           }}>
-            <div style={{
-              fontSize: "11px",
-              fontWeight: "700",
-              color: "#667085",
-              marginBottom: "10px",
-              letterSpacing: "0.5px",
-              textTransform: "uppercase"
-            }}>
-              Demo Login Credentials:
+            <div style={{ marginBottom: 6, fontWeight: 600, color: "#344054" }}>
+              Need help logging in?
             </div>
-            <div style={{ fontSize: "12px", lineHeight: "1.8", color: "#344054" }}>
-              <div><strong>Admin:</strong> admin@shadowfax.in / admin123</div>
-              <div><strong>Supervisor:</strong> supervisor@shadowfax.in / super123</div>
-              <div><strong>Rider:</strong> rider@shadowfax.in / rider123</div>
-            </div>
+            Contact your supervisor or admin for assistance
           </div>
         </div>
 
