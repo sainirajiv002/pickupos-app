@@ -718,6 +718,35 @@ function Dashboard({ clients, clusters, riders, pickups }) {
 
 /* ═══════════════════ CLIENT MASTER (unchanged from v2) ═══════════════════ */
 function ClientMaster({ clients, setClients, clusters }) {
+  // Defensive checks
+  if (!clients || !Array.isArray(clients)) {
+    return (
+      <div style={{ padding:24, textAlign:"center" }}>
+        <div style={{ fontSize:18, fontWeight:700, marginBottom:8, color:"#F04438" }}>
+          Error Loading Client Master
+        </div>
+        <div style={{ fontSize:14, color:"#667085" }}>
+          Client data is not available. Please refresh the page.
+        </div>
+        <button 
+          onClick={() => window.location.reload()}
+          style={{
+            marginTop:16,
+            padding:"10px 20px",
+            background:"#F59E0B",
+            color:"#fff",
+            border:"none",
+            borderRadius:8,
+            cursor:"pointer",
+            fontWeight:600
+          }}
+        >
+          Refresh Page
+        </button>
+      </div>
+    );
+  }
+
   const [q, setQ]           = useState("");
   const [mFilter, setMFilter] = useState("ALL");
   const [showAdd, setShowAdd] = useState(false);
@@ -737,14 +766,15 @@ function ClientMaster({ clients, setClients, clusters }) {
   const setModelCutoff  = (m, val) => setForm(p=>({ ...p, models:{ ...p.models, [m]:{ ...p.models[m], cutoff:val } } }));
 
   const filtered = useMemo(() => clients.filter(c => {
-    const matchQ = c.name.toLowerCase().includes(q.toLowerCase()) ||
-                   c.address.toLowerCase().includes(q.toLowerCase()) ||
-                   c.spoc.toLowerCase().includes(q.toLowerCase());
-    const matchM = mFilter === "ALL" || c.models[mFilter]?.enabled;
+    if (!c || !c.name) return false;
+    const matchQ = (c.name || "").toLowerCase().includes(q.toLowerCase()) ||
+                   (c.address || "").toLowerCase().includes(q.toLowerCase()) ||
+                   (c.spoc || "").toLowerCase().includes(q.toLowerCase());
+    const matchM = mFilter === "ALL" || (c.models && c.models[mFilter]?.enabled);
     return matchQ && matchM;
   }), [clients, q, mFilter]);
 
-  const getCluster = (cid, model) => clusters.find(cl=>cl.model===model && cl.clientIds.includes(cid));
+  const getCluster = (cid, model) => (clusters || []).find(cl=>cl.model===model && (cl.clientIds || []).includes(cid));
 
   const handleSave = async () => {
     if (!form.name||!form.address) return;
@@ -944,6 +974,35 @@ function ClientMaster({ clients, setClients, clusters }) {
 const CL_COLORS_BY_MODEL = { SDD:["#F59E0B","#D97706","#B45309"], AIR:["#06B6D4","#0891B2","#0E7490"], NDD:["#6366F1","#4F46E5","#4338CA"] };
 
 function ClusterBoard({ clients, clusters, setClusters, riders }) {
+  // Defensive checks
+  if (!clients || !Array.isArray(clients) || !clusters || !Array.isArray(clusters) || !riders || !Array.isArray(riders)) {
+    return (
+      <div style={{ padding:24, textAlign:"center" }}>
+        <div style={{ fontSize:18, fontWeight:700, marginBottom:8, color:"#F04438" }}>
+          Error Loading Cluster Board
+        </div>
+        <div style={{ fontSize:14, color:"#667085" }}>
+          Data is not available. Please refresh the page.
+        </div>
+        <button 
+          onClick={() => window.location.reload()}
+          style={{
+            marginTop:16,
+            padding:"10px 20px",
+            background:"#F59E0B",
+            color:"#fff",
+            border:"none",
+            borderRadius:8,
+            cursor:"pointer",
+            fontWeight:600
+          }}
+        >
+          Refresh Page
+        </button>
+      </div>
+    );
+  }
+
   const [activeModel, setActiveModel] = useState("SDD");
   const [showCreate, setShowCreate]   = useState(false);
   const [showAssign, setShowAssign]   = useState(null);
@@ -951,10 +1010,10 @@ function ClusterBoard({ clients, clusters, setClusters, riders }) {
   const [selC, setSelC]               = useState([]);
 
   const m = MODELS[activeModel];
-  const eligibleClients = clients.filter(c=>c.models[activeModel]?.enabled);
-  const modelClusters   = clusters.filter(c=>c.model===activeModel);
-  const modelCounts = Object.keys(MODELS).reduce((acc,mk)=>({...acc,[mk]:clusters.filter(c=>c.model===mk).length}),{});
-  const unassignedInModel = eligibleClients.filter(c=>!modelClusters.some(cl=>cl.clientIds.includes(c.id)));
+  const eligibleClients = clients.filter(c=>c && c.models && c.models[activeModel]?.enabled);
+  const modelClusters   = clusters.filter(c=>c && c.model===activeModel);
+  const modelCounts = Object.keys(MODELS).reduce((acc,mk)=>({...acc,[mk]:clusters.filter(c=>c && c.model===mk).length}),{});
+  const unassignedInModel = eligibleClients.filter(c=>!modelClusters.some(cl=>cl && cl.clientIds && cl.clientIds.includes(c.id)));
 
   const toggleClient = id => setSelC(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
 
