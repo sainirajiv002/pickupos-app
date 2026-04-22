@@ -20,9 +20,7 @@ const SUPABASE_URL = "https://ivkektiowfhmvkjwzgcz.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2a2VrdGlvd2ZobXZrand6Z2N6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3NTAzMDEsImV4cCI6MjA5MjMyNjMwMX0.5wt7bNO5Z0mFVTHi6X8Tj8nySy6WjAWCQ8z9cIKmUQw";
 
 // Supabase client
-import { createClient } from '@supabase/supabase-js';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-// const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 
 /* ═══════════════════ MODELS ═══════════════════ */
 const MODELS = {
