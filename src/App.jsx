@@ -1347,68 +1347,128 @@ function m_text(s) { return s==="A"?MODELS.SDD.text:MODELS.NDD.text; }
 function LiveMap({ riders, clusters, pickups, riderLocations }) {
   const [sel, setSel]      = useState(null);
   const [modelFilter, setMF] = useState("ALL");
+  const [mapReady, setMapReady] = useState(false);
   const mapRef = React.useRef(null);
   const markersRef = React.useRef({});
 
+  // Check if Leaflet is ready
+  useEffect(() => {
+    const checkLeaflet = setInterval(() => {
+      if (window.L) {
+        setMapReady(true);
+        clearInterval(checkLeaflet);
+      }
+    }, 100);
+    
+    return () => clearInterval(checkLeaflet);
+  }, []);
+
   // Initialize Leaflet map
   useEffect(() => {
-    if (!window.L || mapRef.current) return;
+    if (!mapReady || mapRef.current) return;
     
-    // Create map centered on NCR
-    const map = window.L.map('live-map').setView([28.6139, 77.2090], 10);
-    
-    // Add OpenStreetMap tiles
-    window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
-    
-    mapRef.current = map;
+    try {
+      // Create map centered on NCR
+      const map = window.L.map('live-map').setView([28.6139, 77.2090], 10);
+      
+      // Add OpenStreetMap tiles
+      window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(map);
+      
+      mapRef.current = map;
+    } catch (error) {
+      console.error('Map initialization error:', error);
+    }
     
     return () => {
       if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
+        try {
+          mapRef.current.remove();
+          mapRef.current = null;
+        } catch (e) {
+          console.error('Map cleanup error:', e);
+        }
       }
     };
-  }, []);
+  }, [mapReady]);
 
   // Update rider markers
   useEffect(() => {
-    if (!mapRef.current || !window.L) return;
+    if (!mapRef.current || !window.L || !mapReady) return;
 
-    const visRiders = modelFilter === "ALL" ? riders
-      : riders.filter(r=>clusters.some(c=>c.riderId===r.id && c.model===modelFilter));
+    try {
+      const visRiders = modelFilter === "ALL" ? riders
+        : riders.filter(r=>clusters.some(c=>c.riderId===r.id && c.model===modelFilter));
 
-    // Clear old markers
-    Object.values(markersRef.current).forEach(m => m.remove());
-    markersRef.current = {};
-
-    // Add new markers
-    visRiders.forEach(rider => {
-      const loc = riderLocations[rider.id];
-      if (!loc) return;
-
-      const status = getRiderStatus(rider.id, clusters, pickups);
-      const cl = clusters.find(c=>c.riderId===rider.id);
-      const DOT_C = { completed:"#12B76A","in-progress":"#F79009",pending:"#F04438",idle:"#98A2B3" };
-      const color = DOT_C[status];
-
-      const icon = window.L.divIcon({
-        className: 'rider-marker',
-        html: `<div style="width:32px;height:32px;border-radius:50%;background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,0.3);font-family:'Plus Jakarta Sans',sans-serif">${rider.code.split("-")[1]}</div>`,
-        iconSize: [32, 32]
+      // Clear old markers
+      Object.values(markersRef.current).forEach(m => {
+        try { m.remove(); } catch (e) {}
       });
+      markersRef.current = {};
 
-      const marker = window.L.marker([loc.lat, loc.lng], { icon })
-        .addTo(mapRef.current)
-        .on('click', () => setSel(rider.id));
+      // Add new markers
+      visRiders.forEach(rider => {
+        const loc = riderLocations[rider.id];
+        if (!loc) return;
 
-      markersRef.current[rider.id] = marker;
-    });
-  }, [riders, clusters, riderLocations, modelFilter, pickups]);
+        const status = getRiderStatus(rider.id, clusters, pickups);
+        const cl = clusters.find(c=>c.riderId===rider.id);
+        const DOT_C = { completed:"#12B76A","in-progress":"#F79009",pending:"#F04438",idle:"#98A2B3" };
+        const color = DOT_C[status];
+
+        const icon = window.L.divIcon({
+          className: 'rider-marker',
+          html: `<div style="width:32px;height:32px;border-radius:50%;background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,0.3);font-family:'Plus Jakarta Sans',sans-serif">${rider.code.split("-")[1]}</div>`,
+          iconSize: [32, 32]
+        });
+
+        const marker = window.L.marker([loc.lat, loc.lng], { icon })
+          .addTo(mapRef.current)
+          .on('click', () => setSel(rider.id));
+
+        markersRef.current[rider.id] = marker;
+      });
+    } catch (error) {
+      console.error('Marker update error:', error);
+    }
+  }, [riders, clusters, riderLocations, modelFilter, pickups, mapReady]);
 
   const selRider = sel ? riders.find(r=>r.id===sel) : null;
   const selClusters = selRider ? clusters.filter(c=>c.riderId===selRider.id) : [];
+
+  // Show loading state while Leaflet loads
+  if (!mapReady) {
+    return (
+      <div style={{ 
+        padding:"22px 24px", 
+        flex:1, 
+        display:"flex", 
+        alignItems:"center", 
+        justifyContent:"center",
+        flexDirection:"column",
+        gap: 16
+      }}>
+        <div style={{ 
+          width: 48, 
+          height: 48, 
+          border: "4px solid #f3f4f6",
+          borderTop: "4px solid #F59E0B",
+          borderRadius: "50%",
+          animation: "spin 1s linear infinite"
+        }}/>
+        <div style={{ fontSize: 14, color: "#667085", fontWeight: 500 }}>
+          Loading map...
+        </div>
+        <style>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding:"22px 24px", flex:1, overflow:"hidden", display:"flex", flexDirection:"column", gap:14 }}>
@@ -1445,7 +1505,7 @@ function LiveMap({ riders, clusters, pickups, riderLocations }) {
 
       <div style={{ display:"flex", gap:14, flex:1, overflow:"hidden", minHeight:0 }}>
         {/* Map */}
-        <div id="live-map" style={{ flex:1, borderRadius:12, border:`1px solid ${C.border}`, position:"relative", overflow:"hidden" }}>
+        <div id="live-map" style={{ flex:1, borderRadius:12, border:`1px solid ${C.border}`, position:"relative", overflow:"hidden", minHeight: "400px" }}>
           <div style={{ position:"absolute", bottom:10, right:14, background:"rgba(255,255,255,0.9)",
             padding:"6px 10px", borderRadius:8, fontSize:9, color:C.textMuted, zIndex:1000,
             boxShadow:"0 2px 8px rgba(0,0,0,0.1)", fontWeight:600 }}>
