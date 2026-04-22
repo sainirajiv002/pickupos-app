@@ -1069,7 +1069,7 @@ function ClusterBoard({ clients, clusters, setClusters, riders }) {
         {[
           [`${modelClusters.length}`, "Clusters", m.color],
           [`${eligibleClients.length}`, `${activeModel} Clients`, C.textSub],
-          [`${modelClusters.filter(c=>c.riderId).length}`, "Assigned Riders", C.success],
+          [`${modelClusters.filter(c=>c && c.riderId).length}`, "Assigned Riders", C.success],
           [`${unassignedInModel.length}`, "Unassigned Clients", unassignedInModel.length?C.danger:C.success],
         ].map(([v,l,color])=>(
           <div key={l} style={{ background:"#fff", border:`1px solid ${C.border}`, borderRadius:9,
@@ -1089,8 +1089,9 @@ function ClusterBoard({ clients, clusters, setClusters, riders }) {
       {/* Cluster Cards */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))", gap:14 }}>
         {modelClusters.map(cl => {
-          const clClients = cl.clientIds.map(id=>clients.find(c=>c.id===id)).filter(Boolean);
-          const rider = riders.find(r=>r.id===cl.riderId);
+          if (!cl || !cl.id) return null;
+          const clClients = (cl.clientIds || []).map(id=>clients.find(c=>c && c.id===id)).filter(Boolean);
+          const rider = (riders || []).find(r=>r && r.id===cl.riderId);
           return (
             <div key={cl.id} style={{ background:"#fff", borderRadius:14,
               border:`1px solid ${C.border}`, overflow:"hidden", display:"flex", flexDirection:"column",
@@ -1120,16 +1121,19 @@ function ClusterBoard({ clients, clusters, setClusters, riders }) {
                 <div style={{ fontSize:9, fontWeight:700, color:C.textMuted, letterSpacing:"0.1em",
                   textTransform:"uppercase", marginBottom:7 }}>Clients & Cutoffs</div>
                 <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-                  {clClients.map(c => (
+                  {clClients.map(c => {
+                    if (!c || !c.id || !c.name) return null;
+                    return (
                     <div key={c.id} style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
                       background:"#F9FAFB", borderRadius:7, padding:"6px 10px" }}>
                       <div style={{ fontSize:11, fontWeight:600, color:C.text, overflow:"hidden",
-                        textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>{c.name.split(" - ")[0]}</div>
+                        textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>{(c.name || "").split(" - ")[0]}</div>
                       <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:9, color:C.textMuted,
                         background:"#fff", border:`1px solid ${C.border}`, padding:"2px 6px", borderRadius:5,
-                        flexShrink:0, marginLeft:6 }}>{c.models[activeModel]?.cutoff||"—"}</span>
+                        flexShrink:0, marginLeft:6 }}>{(c.models && c.models[activeModel]?.cutoff)||"—"}</span>
                     </div>
-                  ))}
+                    );
+                  })}
                   {!clClients.length && <div style={{ fontSize:11, color:C.textMuted }}>No clients assigned yet</div>}
                 </div>
               </div>
@@ -1138,12 +1142,12 @@ function ClusterBoard({ clients, clusters, setClusters, riders }) {
               <div style={{ padding:"11px 14px" }}>
                 <div style={{ fontSize:9, fontWeight:700, color:C.textMuted, letterSpacing:"0.1em",
                   textTransform:"uppercase", marginBottom:7 }}>Assigned Rider</div>
-                {rider ? (
+                {rider && rider.name ? (
                   <div style={{ display:"flex", alignItems:"center", gap:9 }}>
                     <Av name={rider.name} size={34} bg={cl.color}/>
                     <div style={{ flex:1 }}>
-                      <div style={{ fontSize:13, fontWeight:600, color:C.text }}>{rider.name}</div>
-                      <div style={{ fontSize:10, color:C.textMuted }}>{rider.code} · Shift {rider.shift} · {rider.vehicle}</div>
+                      <div style={{ fontSize:13, fontWeight:600, color:C.text }}>{rider.name || "Unknown"}</div>
+                      <div style={{ fontSize:10, color:C.textMuted }}>{rider.code || ""} · Shift {rider.shift || "?"} · {rider.vehicle || ""}</div>
                     </div>
                     <button onClick={()=>setShowAssign(cl.id)}
                       style={{ background:"#F9FAFB", border:`1px solid ${C.border}`, borderRadius:6,
