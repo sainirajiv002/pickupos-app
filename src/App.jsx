@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import LoginPage from "./LoginPage.jsx";
 import {
   LayoutDashboard, Building2, GitFork, Users, Map, BarChart2,
   Shield, Search, Bell, Plus, Phone, Package, LogOut, Download,
@@ -16,9 +17,9 @@ import {
 const SUPABASE_URL = "https://ivkektiowfhmvkjwzgcz.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2a2VrdGlvd2ZobXZrand6Z2N6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3NTAzMDEsImV4cCI6MjA5MjMyNjMwMX0.5wt7bNO5Z0mFVTHi6X8Tj8nySy6WjAWCQ8z9cIKmUQw";
 
-// Supabase client (will be initialized when credentials added)
-const supabase = SUPABASE_URL && SUPABASE_KEY ? null : null;
-// import { createClient } from '@supabase/supabase-js'
+// Supabase client
+import { createClient } from '@supabase/supabase-js';
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 // const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 
 /* ═══════════════════ MODELS ═══════════════════ */
@@ -1665,7 +1666,75 @@ function UserRoles() {
 }
 
 /* ═══════════════════ ROOT ═══════════════════ */
+// ═══════════════════ AUTHENTICATION WRAPPER ═══════════════════
 export default function PickupOSDesktop() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // Check if user is logged in (from localStorage)
+  useEffect(() => {
+    const savedUser = localStorage.getItem('pickupos_user');
+    if (savedUser) {
+      try {
+        setUser(JSON.parse(savedUser));
+      } catch (e) {
+        localStorage.removeItem('pickupos_user');
+      }
+    }
+    setLoading(false);
+  }, []);
+
+  // Handle login
+  const handleLogin = (userData) => {
+    setUser(userData);
+    localStorage.setItem('pickupos_user', JSON.stringify(userData));
+  };
+
+  // Handle logout
+  const handleLogout = () => {
+    setUser(null);
+    localStorage.removeItem('pickupos_user');
+  };
+
+  // Show loading spinner
+  if (loading) {
+    return (
+      <div style={{ 
+        display: "flex", 
+        alignItems: "center", 
+        justifyContent: "center", 
+        height: "100vh",
+        background: "#F4F6FA",
+        fontFamily: "'Plus Jakarta Sans', sans-serif"
+      }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ 
+            fontSize: 18, 
+            fontWeight: 600, 
+            color: "#344054",
+            marginBottom: 8
+          }}>
+            Loading PickupOS...
+          </div>
+          <div style={{ fontSize: 14, color: "#667085" }}>
+            Please wait
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login page if not authenticated
+  if (!user) {
+    return <LoginPage onLogin={handleLogin} />;
+  }
+
+  // Show main app if authenticated
+  return <MainApp user={user} onLogout={handleLogout} />;
+}
+
+// ═══════════════════ MAIN APP (After Authentication) ═══════════════════
+function MainApp({ user, onLogout }) {
   const [view, setView]     = useState("dashboard");
   const [role, setRole]     = useState("admin");
   const [clients, setClients]   = useState(CLIENTS_INIT);
