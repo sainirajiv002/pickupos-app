@@ -1726,7 +1726,7 @@ export default function PickupOSDesktop() {
 
   // Show login page if not authenticated
   if (!user) {
-    return <LoginPage onLogin={handleLogin} />;
+    return <LoginPage onLogin={handleLogin} supabase={supabase} />;
   }
 
   // Show main app if authenticated
