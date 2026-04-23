@@ -1433,82 +1433,96 @@ function m_text(s) { return s==="A"?MODELS.SDD.text:MODELS.NDD.text; }
 
 /* ═══════════════════ LIVE MAP WITH REAL GPS ═══════════════════ */
 /* ═══════════════════ LIVE TRACKING WITH MAP VIEW ═══════════════════ */
+/* ═══════════════════ LIVE TRACKING WITH GOOGLE MAPS ═══════════════════ */
 function LiveMap({ riders = [], clusters = [], pickups = [], riderLocations = {} }) {
   const [sel, setSel] = useState(null);
   const [modelFilter, setMF] = useState("ALL");
-  const [viewMode, setViewMode] = useState("grid"); // "map" or "grid"
+  const [viewMode, setViewMode] = useState("grid");
   const [mapReady, setMapReady] = useState(false);
   const mapRef = useRef(null);
   const markersRef = useRef({});
+  const googleMapRef = useRef(null);
 
-  // Safe arrays
   const safeRiders = Array.isArray(riders) ? riders : [];
   const safeClusters = Array.isArray(clusters) ? clusters : [];
   const safePickups = Array.isArray(pickups) ? pickups : [];
 
-  // Check if Leaflet is ready
+  // Load Google Maps script
   useEffect(() => {
-    const checkLeaflet = setInterval(() => {
-      if (window.L) {
-        setMapReady(true);
-        clearInterval(checkLeaflet);
-      }
-    }, 100);
-    
-    const timeout = setTimeout(() => {
-      clearInterval(checkLeaflet);
-    }, 5000);
-    
+    if (window.google && window.google.maps) {
+      setMapReady(true);
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyDok1OXs5VI7s0NF801-5XEYd3uOuWhX60&libraries=geometry,places`;
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      setMapReady(true);
+    };
+    script.onerror = () => {
+      console.error('Failed to load Google Maps');
+    };
+    document.head.appendChild(script);
+
     return () => {
-      clearInterval(checkLeaflet);
-      clearTimeout(timeout);
+      if (document.head.contains(script)) {
+        document.head.removeChild(script);
+      }
     };
   }, []);
 
-  // Initialize map
+  // Initialize Google Map
   useEffect(() => {
-    if (viewMode !== "map" || !mapReady || mapRef.current) return;
-    
+    if (viewMode !== "map" || !mapReady || googleMapRef.current) return;
+
     try {
-      const map = window.L.map('live-map').setView([28.6139, 77.2090], 11);
-      
-      window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap',
-        maxZoom: 18
-      }).addTo(map);
-      
-      mapRef.current = map;
-      
-      setTimeout(() => {
-        if (mapRef.current) mapRef.current.invalidateSize();
-      }, 100);
+      const map = new window.google.maps.Map(document.getElementById('google-map'), {
+        center: { lat: 28.6139, lng: 77.2090 },
+        zoom: 11,
+        styles: [
+          {
+            featureType: "poi",
+            elementType: "labels",
+            stylers: [{ visibility: "off" }]
+          }
+        ],
+        mapTypeControl: true,
+        mapTypeControlOptions: {
+          style: window.google.maps.MapTypeControlStyle.HORIZONTAL_BAR,
+          position: window.google.maps.ControlPosition.TOP_RIGHT,
+        },
+        streetViewControl: true,
+        fullscreenControl: true,
+      });
+
+      googleMapRef.current = map;
     } catch (error) {
       console.error('Map init error:', error);
     }
-    
+
     return () => {
-      if (mapRef.current) {
-        try {
-          mapRef.current.remove();
-          mapRef.current = null;
-        } catch (e) {}
-      }
+      googleMapRef.current = null;
     };
   }, [viewMode, mapReady]);
 
   // Update markers
   useEffect(() => {
-    if (viewMode !== "map" || !mapRef.current || !window.L) return;
+    if (viewMode !== "map" || !googleMapRef.current || !window.google) return;
 
     try {
       const visRiders = modelFilter === "ALL" ? safeRiders
-        : safeRiders.filter(r=>safeClusters.some(c=>c && c.riderId===r.id && c.model===modelFilter));
+        : safeRiders.filter(r => safeClusters.some(c => c && c.riderId === r.id && c.model === modelFilter));
 
       // Clear old markers
-      Object.values(markersRef.current).forEach(m => {
-        try { m.remove(); } catch (e) {}
+      Object.values(markersRef.current).forEach(marker => {
+        if (marker && marker.setMap) marker.setMap(null);
       });
       markersRef.current = {};
+
+      const bounds = new window.google.maps.LatLngBounds();
+      let hasMarkers = false;
 
       // Add new markers
       visRiders.forEach(rider => {
@@ -1525,23 +1539,49 @@ function LiveMap({ riders = [], clusters = [], pickups = [], riderLocations = {}
         };
         const color = STATUS_COLORS[status] || "#98A2B3";
 
-        const icon = window.L.divIcon({
-          className: 'rider-marker',
-          html: `<div style="width:40px;height:40px;border-radius:50%;background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;border:3px solid #fff;box-shadow:0 4px 12px rgba(0,0,0,0.3);font-family:'Plus Jakarta Sans',sans-serif;cursor:pointer">${(rider.code || "?").split("-")[1] || "?"}</div>`,
-          iconSize: [40, 40]
+        const position = { lat: loc.lat, lng: loc.lng };
+
+        // Create custom marker with SVG
+        const marker = new window.google.maps.Marker({
+          position: position,
+          map: googleMapRef.current,
+          title: rider.name || "Unknown",
+          icon: {
+            path: window.google.maps.SymbolPath.CIRCLE,
+            fillColor: color,
+            fillOpacity: 1,
+            strokeColor: '#fff',
+            strokeWeight: 3,
+            scale: 15
+          },
+          label: {
+            text: ((rider.code || "?").split("-")[1] || "?"),
+            color: '#fff',
+            fontSize: '12px',
+            fontWeight: 'bold'
+          }
         });
 
-        const marker = window.L.marker([loc.lat, loc.lng], { icon })
-          .addTo(mapRef.current)
-          .on('click', () => setSel(rider.id));
+        marker.addListener('click', () => {
+          setSel(rider.id);
+        });
 
         markersRef.current[rider.id] = marker;
+        bounds.extend(position);
+        hasMarkers = true;
       });
 
-      // Fit bounds
-      if (Object.keys(markersRef.current).length > 0) {
-        const group = window.L.featureGroup(Object.values(markersRef.current));
-        mapRef.current.fitBounds(group.getBounds().pad(0.1));
+      // Fit bounds if we have markers
+      if (hasMarkers) {
+        googleMapRef.current.fitBounds(bounds);
+        
+        // Don't zoom in too much for single marker
+        const listener = window.google.maps.event.addListener(googleMapRef.current, "idle", () => {
+          if (googleMapRef.current.getZoom() > 15) {
+            googleMapRef.current.setZoom(15);
+          }
+          window.google.maps.event.removeListener(listener);
+        });
       }
     } catch (error) {
       console.error('Marker update error:', error);
@@ -1549,27 +1589,29 @@ function LiveMap({ riders = [], clusters = [], pickups = [], riderLocations = {}
   }, [safeRiders, safeClusters, riderLocations, modelFilter, safePickups, viewMode, mapReady]);
 
   const visRiders = modelFilter === "ALL" ? safeRiders
-    : safeRiders.filter(r=>safeClusters.some(c=>c && c.riderId===r.id && c.model===modelFilter));
+    : safeRiders.filter(r => safeClusters.some(c => c && c.riderId === r.id && c.model === modelFilter));
 
-  const selRider = sel ? safeRiders.find(r=>r && r.id===sel) : null;
-  const selClusters = selRider ? safeClusters.filter(c=>c && c.riderId===selRider.id) : [];
+  const selRider = sel ? safeRiders.find(r => r && r.id === sel) : null;
+  const selClusters = selRider ? safeClusters.filter(c => c && c.riderId === selRider.id) : [];
 
   return (
-    <div style={{ padding:"22px 24px", flex:1, overflow:"auto", display:"flex", flexDirection:"column", gap:14 }}>
-      {/* Top Bar: Filters + View Toggle + Legend */}
-      <div style={{ display:"flex", alignItems:"center", gap:12, flexWrap:"wrap" }}>
+    <div style={{ padding: "22px 24px", flex: 1, overflow: "auto", display: "flex", flexDirection: "column", gap: 14 }}>
+      {/* Top Bar */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         {/* Model Filters */}
-        <div style={{ display:"flex", gap:6 }}>
-          {["ALL",...Object.keys(MODELS)].map(mk => {
+        <div style={{ display: "flex", gap: 6 }}>
+          {["ALL", ...Object.keys(MODELS)].map(mk => {
             const m = MODELS[mk];
             return (
-              <button key={mk} onClick={()=>setMF(mk)}
-                style={{ padding:"5px 14px", borderRadius:20, border:`1px solid ${modelFilter===mk?(m?.border||C.accent):C.border}`,
-                  background:modelFilter===mk?(m?.bg||C.accentBg):"#fff",
-                  color:modelFilter===mk?(m?.text||C.accent):C.textMuted,
-                  fontSize:11, fontWeight:modelFilter===mk?700:500, cursor:"pointer",
-                  fontFamily:"'Plus Jakarta Sans',sans-serif", display:"flex", alignItems:"center", gap:5 }}>
-                {m && <span style={{ fontSize:11 }}>{m.icon}</span>}
+              <button key={mk} onClick={() => setMF(mk)}
+                style={{
+                  padding: "5px 14px", borderRadius: 20, border: `1px solid ${modelFilter === mk ? (m?.border || C.accent) : C.border}`,
+                  background: modelFilter === mk ? (m?.bg || C.accentBg) : "#fff",
+                  color: modelFilter === mk ? (m?.text || C.accent) : C.textMuted,
+                  fontSize: 11, fontWeight: modelFilter === mk ? 700 : 500, cursor: "pointer",
+                  fontFamily: "'Plus Jakarta Sans',sans-serif", display: "flex", alignItems: "center", gap: 5
+                }}>
+                {m && <span style={{ fontSize: 11 }}>{m.icon}</span>}
                 {mk === "ALL" ? "All Models" : m?.short}
               </button>
             );
@@ -1577,42 +1619,42 @@ function LiveMap({ riders = [], clusters = [], pickups = [], riderLocations = {}
         </div>
 
         {/* View Toggle */}
-        <div style={{ display:"flex", gap:6, marginLeft:"auto" }}>
+        <div style={{ display: "flex", gap: 6, marginLeft: "auto" }}>
           <button
             onClick={() => setViewMode("map")}
             disabled={!mapReady}
             style={{
-              padding:"6px 14px",
-              borderRadius:8,
-              border:`1px solid ${viewMode==="map"?C.accent:C.border}`,
-              background:viewMode==="map"?C.accentBg:"#fff",
-              color:viewMode==="map"?C.accent:C.textMuted,
-              fontSize:12,
-              fontWeight:600,
+              padding: "6px 14px",
+              borderRadius: 8,
+              border: `1px solid ${viewMode === "map" ? C.accent : C.border}`,
+              background: viewMode === "map" ? C.accentBg : "#fff",
+              color: viewMode === "map" ? C.accent : C.textMuted,
+              fontSize: 12,
+              fontWeight: 600,
               cursor: mapReady ? "pointer" : "not-allowed",
               opacity: mapReady ? 1 : 0.5,
-              display:"flex",
-              alignItems:"center",
-              gap:6
+              display: "flex",
+              alignItems: "center",
+              gap: 6
             }}
           >
             🗺️ Map
-            {!mapReady && <span style={{fontSize:10}}>(Loading...)</span>}
+            {!mapReady && <span style={{ fontSize: 10 }}>(Loading...)</span>}
           </button>
           <button
             onClick={() => setViewMode("grid")}
             style={{
-              padding:"6px 14px",
-              borderRadius:8,
-              border:`1px solid ${viewMode==="grid"?C.accent:C.border}`,
-              background:viewMode==="grid"?C.accentBg:"#fff",
-              color:viewMode==="grid"?C.accent:C.textMuted,
-              fontSize:12,
-              fontWeight:600,
-              cursor:"pointer",
-              display:"flex",
-              alignItems:"center",
-              gap:6
+              padding: "6px 14px",
+              borderRadius: 8,
+              border: `1px solid ${viewMode === "grid" ? C.accent : C.border}`,
+              background: viewMode === "grid" ? C.accentBg : "#fff",
+              color: viewMode === "grid" ? C.accent : C.textMuted,
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6
             }}
           >
             📊 Grid
@@ -1620,12 +1662,12 @@ function LiveMap({ riders = [], clusters = [], pickups = [], riderLocations = {}
         </div>
 
         {/* Status Legend */}
-        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-          {Object.entries({ completed:"Completed", "in-progress":"In Progress", pending:"Pending", idle:"Idle" }).map(([s,l])=>{
-            const colors={completed:"#12B76A","in-progress":"#F79009",pending:"#F04438",idle:"#98A2B3"};
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {Object.entries({ completed: "Completed", "in-progress": "In Progress", pending: "Pending", idle: "Idle" }).map(([s, l]) => {
+            const colors = { completed: "#12B76A", "in-progress": "#F79009", pending: "#F04438", idle: "#98A2B3" };
             return (
-              <div key={s} style={{ display:"flex", alignItems:"center", gap:5, fontSize:11, color:C.textMuted }}>
-                <div style={{ width:10, height:10, borderRadius:"50%", background:colors[s], border:"2px solid #fff", boxShadow:"0 1px 3px rgba(0,0,0,0.2)" }}/>
+              <div key={s} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: C.textMuted }}>
+                <div style={{ width: 10, height: 10, borderRadius: "50%", background: colors[s], border: "2px solid #fff", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
                 {l}
               </div>
             );
@@ -1633,58 +1675,73 @@ function LiveMap({ riders = [], clusters = [], pickups = [], riderLocations = {}
         </div>
       </div>
 
-      {/* MAP VIEW */}
+      {/* GOOGLE MAPS VIEW */}
       {viewMode === "map" && (
-        <div style={{ flex:1, background:"#fff", borderRadius:12, border:`1px solid ${C.border}`, position:"relative", minHeight:"600px", overflow:"hidden" }}>
+        <div style={{ flex: 1, background: "#fff", borderRadius: 12, border: `1px solid ${C.border}`, position: "relative", minHeight: "600px", overflow: "hidden" }}>
           {!mapReady ? (
-            <div style={{ 
-              position:"absolute", 
-              inset:0, 
-              display:"flex", 
-              alignItems:"center", 
-              justifyContent:"center",
-              flexDirection:"column",
-              gap:16,
-              background:"#F9FAFB"
+            <div style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexDirection: "column",
+              gap: 16,
+              background: "#F9FAFB"
             }}>
-              <div style={{ 
-                width:48, 
-                height:48, 
-                border:"4px solid #E5E7EB",
-                borderTop:"4px solid #F59E0B",
-                borderRadius:"50%",
-                animation:"spin 1s linear infinite"
-              }}/>
-              <div style={{ fontSize:14, color:"#6B7280", fontWeight:600 }}>
-                Loading map...
+              <div style={{
+                width: 48,
+                height: 48,
+                border: "4px solid #E5E7EB",
+                borderTop: "4px solid #F59E0B",
+                borderRadius: "50%",
+                animation: "spin 1s linear infinite"
+              }} />
+              <div style={{ fontSize: 14, color: "#6B7280", fontWeight: 600 }}>
+                Loading Google Maps...
               </div>
               <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
             </div>
           ) : (
             <>
-              <div id="live-map" style={{ width:"100%", height:"100%", borderRadius:12 }}></div>
-              
+              <div id="google-map" style={{ width: "100%", height: "100%", borderRadius: 12 }}></div>
+
               {/* Stats Overlay */}
               <div style={{
-                position:"absolute",
-                top:16,
-                left:16,
-                background:"rgba(255,255,255,0.98)",
-                padding:"14px 18px",
-                borderRadius:10,
-                boxShadow:"0 4px 16px rgba(0,0,0,0.12)",
-                zIndex:1000,
-                border:"1px solid rgba(0,0,0,0.05)"
+                position: "absolute",
+                top: 16,
+                left: 16,
+                background: "rgba(255,255,255,0.98)",
+                padding: "14px 18px",
+                borderRadius: 10,
+                boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+                zIndex: 10,
+                border: "1px solid rgba(0,0,0,0.05)"
               }}>
-                <div style={{ fontSize:10, color:C.textMuted, fontWeight:700, marginBottom:6, letterSpacing:"0.5px", textTransform:"uppercase" }}>
+                <div style={{ fontSize: 10, color: C.textMuted, fontWeight: 700, marginBottom: 6, letterSpacing: "0.5px", textTransform: "uppercase" }}>
                   Active Riders
                 </div>
-                <div style={{ fontSize:28, fontWeight:800, color:C.text, lineHeight:1 }}>
+                <div style={{ fontSize: 28, fontWeight: 800, color: C.text, lineHeight: 1 }}>
                   {Object.keys(markersRef.current).length}
                 </div>
-                <div style={{ fontSize:10, color:C.textMuted, marginTop:4 }}>
+                <div style={{ fontSize: 10, color: C.textMuted, marginTop: 4 }}>
                   of {visRiders.length} total
                 </div>
+              </div>
+
+              {/* Google Maps Attribution */}
+              <div style={{
+                position: "absolute",
+                bottom: 8,
+                right: 8,
+                fontSize: 9,
+                color: "#666",
+                background: "rgba(255,255,255,0.8)",
+                padding: "2px 6px",
+                borderRadius: 4,
+                zIndex: 10
+              }}>
+                Powered by Google Maps
               </div>
             </>
           )}
@@ -1693,93 +1750,93 @@ function LiveMap({ riders = [], clusters = [], pickups = [], riderLocations = {}
 
       {/* GRID VIEW */}
       {viewMode === "grid" && (
-        <div style={{ flex:1, background:"#fff", borderRadius:12, border:`1px solid ${C.border}`, padding:20, overflow:"auto" }}>
-          <div style={{ 
-            textAlign:"center", 
-            padding:"30px 20px",
-            background:"#F9FAFB",
-            borderRadius:8,
-            marginBottom:20
+        <div style={{ flex: 1, background: "#fff", borderRadius: 12, border: `1px solid ${C.border}`, padding: 20, overflow: "auto" }}>
+          <div style={{
+            textAlign: "center",
+            padding: "30px 20px",
+            background: "#F9FAFB",
+            borderRadius: 8,
+            marginBottom: 20
           }}>
-            <div style={{ fontSize:48, marginBottom:12 }}>🗺️</div>
-            <div style={{ fontSize:18, fontWeight:700, color:C.text, marginBottom:8 }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>🗺️</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: C.text, marginBottom: 8 }}>
               Live Rider Tracking
             </div>
-            <div style={{ fontSize:14, color:C.textMuted }}>
+            <div style={{ fontSize: 14, color: C.textMuted }}>
               Showing {visRiders.length} riders {modelFilter !== "ALL" && `(${modelFilter} model)`}
             </div>
           </div>
 
           {/* Rider Cards Grid */}
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(280px, 1fr))", gap:12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
             {visRiders.map(rider => {
               if (!rider || !rider.id) return null;
               const status = getRiderStatus(rider.id, safeClusters, safePickups);
-              const cl = safeClusters.find(c=>c && c.riderId===rider.id);
-              const DOT_C = { completed:"#12B76A","in-progress":"#F79009",pending:"#F04438",idle:"#98A2B3" };
+              const cl = safeClusters.find(c => c && c.riderId === rider.id);
+              const DOT_C = { completed: "#12B76A", "in-progress": "#F79009", pending: "#F04438", idle: "#98A2B3" };
               const color = DOT_C[status] || "#98A2B3";
               const loc = riderLocations[rider.id];
 
               return (
-                <div 
+                <div
                   key={rider.id}
                   onClick={() => setSel(rider.id)}
-                  style={{ 
-                    background:sel===rider.id?"#F9FAFB":"#fff",
-                    border:`1px solid ${sel===rider.id?C.accent:C.border}`,
-                    borderRadius:10,
-                    padding:14,
-                    cursor:"pointer",
-                    transition:"all 0.2s",
-                    boxShadow:sel===rider.id?"0 4px 12px rgba(0,0,0,0.08)":"0 1px 3px rgba(0,0,0,0.05)"
+                  style={{
+                    background: sel === rider.id ? "#F9FAFB" : "#fff",
+                    border: `1px solid ${sel === rider.id ? C.accent : C.border}`,
+                    borderRadius: 10,
+                    padding: 14,
+                    cursor: "pointer",
+                    transition: "all 0.2s",
+                    boxShadow: sel === rider.id ? "0 4px 12px rgba(0,0,0,0.08)" : "0 1px 3px rgba(0,0,0,0.05)"
                   }}
                 >
-                  <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
-                    <div style={{ 
-                      width:40, 
-                      height:40, 
-                      borderRadius:"50%",
-                      background:color,
-                      color:"#fff",
-                      display:"flex",
-                      alignItems:"center",
-                      justifyContent:"center",
-                      fontSize:13,
-                      fontWeight:800,
-                      boxShadow:"0 2px 8px rgba(0,0,0,0.15)"
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                    <div style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: "50%",
+                      background: color,
+                      color: "#fff",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 13,
+                      fontWeight: 800,
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.15)"
                     }}>
                       {((rider.code || "?").split("-")[1]) || "?"}
                     </div>
-                    <div style={{ flex:1 }}>
-                      <div style={{ fontSize:13, fontWeight:700, color:C.text }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>
                         {rider.name || "Unknown"}
                       </div>
-                      <div style={{ fontSize:11, color:C.textMuted }}>
+                      <div style={{ fontSize: 11, color: C.textMuted }}>
                         {rider.code || "—"}
                       </div>
                     </div>
                   </div>
-                  
-                  <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:8 }}>
-                    <span style={{ 
-                      fontSize:10, 
-                      padding:"3px 8px", 
-                      borderRadius:6,
-                      background:color+"20",
-                      color:color,
-                      fontWeight:600,
-                      textTransform:"capitalize"
+
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+                    <span style={{
+                      fontSize: 10,
+                      padding: "3px 8px",
+                      borderRadius: 6,
+                      background: color + "20",
+                      color: color,
+                      fontWeight: 600,
+                      textTransform: "capitalize"
                     }}>
-                      {status.replace("-"," ")}
+                      {status.replace("-", " ")}
                     </span>
                     {cl && MODELS[cl.model] && (
-                      <span style={{ 
-                        fontSize:10, 
-                        padding:"3px 8px", 
-                        borderRadius:6,
-                        background:MODELS[cl.model].bg,
-                        color:MODELS[cl.model].text,
-                        fontWeight:600
+                      <span style={{
+                        fontSize: 10,
+                        padding: "3px 8px",
+                        borderRadius: 6,
+                        background: MODELS[cl.model].bg,
+                        color: MODELS[cl.model].text,
+                        fontWeight: 600
                       }}>
                         {MODELS[cl.model].short}
                       </span>
@@ -1787,14 +1844,14 @@ function LiveMap({ riders = [], clusters = [], pickups = [], riderLocations = {}
                   </div>
 
                   {loc && loc.timestamp && (
-                    <div style={{ 
-                      paddingTop:8, 
-                      borderTop:`1px solid ${C.border}`,
-                      fontSize:10,
-                      color:C.textMuted,
-                      display:"flex",
-                      alignItems:"center",
-                      gap:4
+                    <div style={{
+                      paddingTop: 8,
+                      borderTop: `1px solid ${C.border}`,
+                      fontSize: 10,
+                      color: C.textMuted,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4
                     }}>
                       📍 Last seen: {new Date(loc.timestamp).toLocaleTimeString()}
                     </div>
@@ -1805,7 +1862,7 @@ function LiveMap({ riders = [], clusters = [], pickups = [], riderLocations = {}
           </div>
 
           {visRiders.length === 0 && (
-            <div style={{ textAlign:"center", padding:40, color:C.textMuted, fontSize:14 }}>
+            <div style={{ textAlign: "center", padding: 40, color: C.textMuted, fontSize: 14 }}>
               No riders found for this filter
             </div>
           )}
@@ -1814,73 +1871,73 @@ function LiveMap({ riders = [], clusters = [], pickups = [], riderLocations = {}
 
       {/* Selected Rider Details Panel */}
       {selRider && (
-        <div style={{ 
-          position:"fixed",
-          top:0,
-          right:0,
-          width:340,
-          height:"100vh",
-          background:"#fff",
-          borderLeft:`1px solid ${C.border}`,
-          padding:20,
-          overflowY:"auto",
-          zIndex:100,
-          boxShadow:"-4px 0 16px rgba(0,0,0,0.08)"
+        <div style={{
+          position: "fixed",
+          top: 0,
+          right: 0,
+          width: 340,
+          height: "100vh",
+          background: "#fff",
+          borderLeft: `1px solid ${C.border}`,
+          padding: 20,
+          overflowY: "auto",
+          zIndex: 100,
+          boxShadow: "-4px 0 16px rgba(0,0,0,0.08)"
         }}>
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
-            <h3 style={{ fontSize:16, fontWeight:700, margin:0 }}>Rider Details</h3>
-            <button onClick={() => setSel(null)} style={{ 
-              background:"none", 
-              border:"none", 
-              cursor:"pointer",
-              padding:4,
-              color:C.textMuted,
-              fontSize:20
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Rider Details</h3>
+            <button onClick={() => setSel(null)} style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              padding: 4,
+              color: C.textMuted,
+              fontSize: 20
             }}>
               ✕
             </button>
           </div>
 
-          <div style={{ marginBottom:20 }}>
-            <div style={{ fontSize:15, fontWeight:700, color:C.text, marginBottom:6 }}>
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 6 }}>
               {selRider.name || "Unknown"}
             </div>
-            <div style={{ fontSize:12, color:C.textMuted, marginBottom:4 }}>
+            <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 4 }}>
               {selRider.code || "—"} • {selRider.phone || "—"}
             </div>
-            <div style={{ fontSize:11, color:C.textMuted }}>
+            <div style={{ fontSize: 11, color: C.textMuted }}>
               Shift {selRider.shift || "?"}
             </div>
           </div>
 
           {selClusters.length > 0 && (
             <>
-              <div style={{ fontSize:11, fontWeight:700, color:C.textMuted, marginBottom:10, textTransform:"uppercase", letterSpacing:"0.5px" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.5px" }}>
                 Assigned Clusters ({selClusters.length})
               </div>
-              <div style={{ display:"flex", flexDirection:"column", gap:10, marginBottom:20 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
                 {selClusters.map(c => {
                   if (!c || !c.id) return null;
                   return (
-                    <div key={c.id} style={{ 
-                      background:"#F9FAFB",
-                      padding:12,
-                      borderRadius:8,
-                      border:`1px solid ${C.border}`
+                    <div key={c.id} style={{
+                      background: "#F9FAFB",
+                      padding: 12,
+                      borderRadius: 8,
+                      border: `1px solid ${C.border}`
                     }}>
-                      <div style={{ fontWeight:600, marginBottom:6, fontSize:13 }}>{c.name || "Unknown"}</div>
-                      <div style={{ color:C.textMuted, fontSize:11, marginBottom:6 }}>
+                      <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>{c.name || "Unknown"}</div>
+                      <div style={{ color: C.textMuted, fontSize: 11, marginBottom: 6 }}>
                         {MODELS[c.model]?.label || c.model} • {(c.clientIds || []).length} clients
                       </div>
                       {MODELS[c.model] && (
                         <span style={{
-                          display:"inline-block",
-                          fontSize:10,
-                          padding:"3px 8px",
-                          borderRadius:6,
-                          background:MODELS[c.model].bg,
-                          color:MODELS[c.model].text,
-                          fontWeight:600
+                          display: "inline-block",
+                          fontSize: 10,
+                          padding: "3px 8px",
+                          borderRadius: 6,
+                          background: MODELS[c.model].bg,
+                          color: MODELS[c.model].text,
+                          fontWeight: 600
                         }}>
                           {MODELS[c.model].short}
                         </span>
@@ -1896,19 +1953,19 @@ function LiveMap({ riders = [], clusters = [], pickups = [], riderLocations = {}
             <button
               onClick={() => window.open(`tel:${selRider.phone}`)}
               style={{
-                width:"100%",
-                padding:"12px",
-                background:C.accent,
-                color:"#fff",
-                border:"none",
-                borderRadius:8,
-                fontSize:13,
-                fontWeight:600,
-                cursor:"pointer",
-                display:"flex",
-                alignItems:"center",
-                justifyContent:"center",
-                gap:8
+                width: "100%",
+                padding: "12px",
+                background: C.accent,
+                color: "#fff",
+                border: "none",
+                borderRadius: 8,
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8
               }}
             >
               📞 Call {(selRider.name || "Rider").split(" ")[0]}
@@ -1919,6 +1976,7 @@ function LiveMap({ riders = [], clusters = [], pickups = [], riderLocations = {}
     </div>
   );
 }
+
 
 
 /* ═══════════════════ REPORTS (same as v2) ═══════════════════ */
