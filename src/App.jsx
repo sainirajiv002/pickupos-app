@@ -441,8 +441,8 @@ const NAV = [
 ];
 
 function Sidebar({ view, setView, role, setRole, userRole }) {
-  // Filter navigation items based on user role
-  const allowedNav = NAV.filter(item => item.roles.includes(userRole));
+  // Filter navigation items based on VIEW AS role (not actual user role)
+  const allowedNav = NAV.filter(item => item.roles.includes(role));
   
   return (
     <div style={{ width:230, background:C.sidebar, display:"flex", flexDirection:"column", flexShrink:0, height:"100vh" }}>
