@@ -1,3 +1,4 @@
+import FileImport from './FileImport';
 import React, { useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { Home, Upload, BarChart, Users, MapPin, LogOut } from 'lucide-react';
