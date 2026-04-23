@@ -480,22 +480,25 @@ function Sidebar({ view, setView, role, setRole, userRole }) {
       </nav>
 
       <div style={{ padding:"12px 10px 16px", borderTop:"1px solid rgba(255,255,255,0.06)" }}>
-        <div style={{ marginBottom:12 }}>
-          <div style={{ fontSize:9, color:"#3D4A5C", fontWeight:700, letterSpacing:"0.1em",
-            textTransform:"uppercase", marginBottom:6 }}>View As</div>
-          <div style={{ display:"flex", gap:4 }}>
-            {["admin","supervisor"].map(r => (
-              <button key={r} onClick={() => setRole(r)}
-                style={{ flex:1, padding:"5px 0", borderRadius:6, border:"none", cursor:"pointer",
-                  background: role===r ? C.accent : "rgba(255,255,255,0.06)",
-                  color: role===r ? "#fff" : "#4D5B6E",
-                  fontSize:9, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.06em",
-                  fontFamily:"'Plus Jakarta Sans',sans-serif", transition:"all 0.15s" }}>
-                {r}
-              </button>
-            ))}
+        {/* Only show "View As" for admin and supervisor users */}
+        {(userRole === "admin" || userRole === "supervisor") && (
+          <div style={{ marginBottom:12 }}>
+            <div style={{ fontSize:9, color:"#3D4A5C", fontWeight:700, letterSpacing:"0.1em",
+              textTransform:"uppercase", marginBottom:6 }}>View As</div>
+            <div style={{ display:"flex", gap:4 }}>
+              {["admin","supervisor"].map(r => (
+                <button key={r} onClick={() => setRole(r)}
+                  style={{ flex:1, padding:"5px 0", borderRadius:6, border:"none", cursor:"pointer",
+                    background: role===r ? C.accent : "rgba(255,255,255,0.06)",
+                    color: role===r ? "#fff" : "#4D5B6E",
+                    fontSize:9, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.06em",
+                    fontFamily:"'Plus Jakarta Sans',sans-serif", transition:"all 0.15s" }}>
+                  {r}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
         <div style={{ display:"flex", alignItems:"center", gap:9 }}>
           <Av name="Arjun Sharma" size={30} bg="#1E293B"/>
           <div style={{ flex:1, overflow:"hidden" }}>
@@ -2208,12 +2211,54 @@ export default function PickupOSDesktop() {
 // ═══════════════════ MAIN APP (After Authentication) ═══════════════════
 function MainApp({ user, onLogout }) {
   const [view, setView]     = useState("dashboard");
-  const [role, setRole]     = useState("admin");
+  // Set initial role based on user's actual role (riders can't change role)
+  const [role, setRole]     = useState(user?.role || "rider");
   const [clients, setClients]   = useState(CLIENTS_INIT);
   const [clusters, setClusters] = useState(CLUSTERS_INIT);
   const [riders, setRiders]     = useState(RIDERS_INIT);
   const [pickups]               = useState(PICKUPS_INIT);
   const [riderLocations, setRiderLocations] = useState(RIDER_LOCATIONS_INIT);
+
+  // Auto-logout after 30 minutes of inactivity
+  useEffect(() => {
+    let inactivityTimer;
+    
+    const resetTimer = () => {
+      clearTimeout(inactivityTimer);
+      inactivityTimer = setTimeout(() => {
+        alert('You have been logged out due to inactivity');
+        onLogout();
+      }, 30 * 60 * 1000); // 30 minutes
+    };
+    
+    // Reset timer on user activity
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+    events.forEach(event => {
+      document.addEventListener(event, resetTimer);
+    });
+    
+    resetTimer(); // Start the timer
+    
+    return () => {
+      clearTimeout(inactivityTimer);
+      events.forEach(event => {
+        document.removeEventListener(event, resetTimer);
+      });
+    };
+  }, [onLogout]);
+
+  // Ensure role stays valid for user's permission level
+  useEffect(() => {
+    const userRole = user?.role || "rider";
+    // If user is rider, force role to rider
+    if (userRole === "rider" && role !== "rider") {
+      setRole("rider");
+    }
+    // If user is supervisor, can't view as admin
+    if (userRole === "supervisor" && role === "admin") {
+      setRole("supervisor");
+    }
+  }, [user, role]);
 
   // Load Leaflet script
   useEffect(() => {
