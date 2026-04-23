@@ -430,17 +430,20 @@ function Table({ columns, rows, actions, emptyMsg="No records" }) {
 
 /* ═══════════════════ SIDEBAR ═══════════════════ */
 const NAV = [
-  { id:"dashboard", icon:LayoutDashboard, label:"Dashboard"         },
-  { id:"clients",   icon:Building2,       label:"Client Master"     },
-  { id:"clusters",  icon:GitFork,         label:"Cluster Board"     },
-  { id:"riders",    icon:Users,           label:"Rider Management"  },
-  { id:"map",       icon:Map,             label:"Live Tracking"     },
-  { id:"reports",   icon:BarChart2,       label:"Reports"           },
-  { id:"roles",     icon:Shield,          label:"User & Roles"      },
-  { id:"users",     icon:Users,           label:"User Management"   },
+  { id:"dashboard", icon:LayoutDashboard, label:"Dashboard", roles:["admin", "supervisor", "rider"] },
+  { id:"clients",   icon:Building2,       label:"Client Master", roles:["admin", "supervisor"] },
+  { id:"clusters",  icon:GitFork,         label:"Cluster Board", roles:["admin", "supervisor"] },
+  { id:"riders",    icon:Users,           label:"Rider Management", roles:["admin", "supervisor"] },
+  { id:"map",       icon:Map,             label:"Live Tracking", roles:["admin", "supervisor"] }, // 🔒 ONLY ADMIN & SUPERVISOR
+  { id:"reports",   icon:BarChart2,       label:"Reports", roles:["admin", "supervisor"] },
+  { id:"roles",     icon:Shield,          label:"User & Roles", roles:["admin"] },
+  { id:"users",     icon:Users,           label:"User Management", roles:["admin"] },
 ];
 
-function Sidebar({ view, setView, role, setRole }) {
+function Sidebar({ view, setView, role, setRole, userRole }) {
+  // Filter navigation items based on user role
+  const allowedNav = NAV.filter(item => item.roles.includes(userRole));
+  
   return (
     <div style={{ width:230, background:C.sidebar, display:"flex", flexDirection:"column", flexShrink:0, height:"100vh" }}>
       <div style={{ padding:"18px 16px 14px", borderBottom:"1px solid rgba(255,255,255,0.06)" }}>
@@ -459,7 +462,7 @@ function Sidebar({ view, setView, role, setRole }) {
       <nav style={{ flex:1, padding:"10px 8px", overflowY:"auto" }}>
         <div style={{ fontSize:9, fontWeight:700, color:"#2D3A4A", letterSpacing:"0.14em",
           textTransform:"uppercase", padding:"8px 10px 4px", marginBottom:2 }}>Operations</div>
-        {NAV.map(item => {
+        {allowedNav.map(item => {
           const isA = view === item.id;
           return (
             <button key={item.id} onClick={() => setView(item.id)} className={isA?"":"nav-h"}
@@ -2256,7 +2259,7 @@ function MainApp({ user, onLogout }) {
     <>
       <GS/>
       <div style={{ display:"flex", height:"100vh", overflow:"hidden", background:C.bg }}>
-        <Sidebar view={view} setView={setView} role={role} setRole={setRole}/>
+        <Sidebar view={view} setView={setView} role={role} setRole={setRole} userRole={user?.role || 'rider'}/>
         <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minWidth:0 }}>
           <TopBar view={view} role={role} user={user} onLogout={onLogout}/>
           <div style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"column" }}>
