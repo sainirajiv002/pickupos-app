@@ -5,10 +5,10 @@ import FileImport from "./FileImport.jsx";
 import { createClient } from '@supabase/supabase-js';
 import {
   LayoutDashboard, Building2, GitFork, Users, Map, BarChart2,
-  Shield, Search, Bell, Plus, Phone, Package, LogOut, Download, Upload,
+  Shield, Search, Bell, Plus, Phone, Package, LogOut, Download,
   X, Truck, ChevronRight, Check, AlertTriangle, Clock, Navigation,
   Activity, RefreshCw, MapPin, XCircle, ChevronDown, Zap, Wind,
-  Moon, Sun, Filter, Eye, MoreHorizontal, Edit2, Trash2, FileText
+  Moon, Sun, Filter, Eye, MoreHorizontal, Edit2, Trash2, Upload
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
