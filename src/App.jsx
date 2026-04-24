@@ -5,7 +5,7 @@ import FileImport from "./FileImport.jsx";
 import { createClient } from '@supabase/supabase-js';
 import {
   LayoutDashboard, Building2, GitFork, Users, Map, BarChart2,
-  Shield, Search, Bell, Plus, Phone, Package, LogOut, Download,
+  Shield, Search, Bell, Plus, Phone, Package, LogOut, Download, Upload,
   X, Truck, ChevronRight, Check, AlertTriangle, Clock, Navigation,
   Activity, RefreshCw, MapPin, XCircle, ChevronDown, Zap, Wind,
   Moon, Sun, Filter, Eye, MoreHorizontal, Edit2, Trash2, Upload
