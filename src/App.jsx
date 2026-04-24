@@ -1,13 +1,14 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import LoginPage from "./LoginPage.jsx";
 import UserManagement from "./UserManagement.jsx";
+import FileImport from "./FileImport.jsx";
 import { createClient } from '@supabase/supabase-js';
 import {
   LayoutDashboard, Building2, GitFork, Users, Map, BarChart2,
   Shield, Search, Bell, Plus, Phone, Package, LogOut, Download,
   X, Truck, ChevronRight, Check, AlertTriangle, Clock, Navigation,
   Activity, RefreshCw, MapPin, XCircle, ChevronDown, Zap, Wind,
-  Moon, Sun, Filter, Eye, MoreHorizontal, Edit2, Trash2
+  Moon, Sun, Filter, Eye, MoreHorizontal, Edit2, Trash2, Upload
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
@@ -15,11 +16,9 @@ import {
 } from "recharts";
 
 /* ═══════════════════ SUPABASE CONFIG ═══════════════════ */
-// TODO: Add your Supabase credentials after setup
 const SUPABASE_URL = "https://ivkektiowfhmvkjwzgcz.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2a2VrdGlvd2ZobXZrand6Z2N6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3NTAzMDEsImV4cCI6MjA5MjMyNjMwMX0.5wt7bNO5Z0mFVTHi6X8Tj8nySy6WjAWCQ8z9cIKmUQw";
 
-// Supabase client
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ═══════════════════ MODELS ═══════════════════ */
@@ -29,2289 +28,796 @@ const MODELS = {
   NDD: { key:"NDD", label:"Next Day Delivery",  short:"NDD", icon:"🌙", color:"#6366F1", bg:"#EEF2FF", text:"#3730A3", border:"#A5B4FC", desc:"Night cutoff · Delivered next day"    },
 };
 
-/* ═══════════════════ TOKENS ═══════════════════ */
-const C = {
-  sidebar:"#0C111D", sidebarHover:"rgba(255,255,255,0.06)",
-  accent:"#F59E0B", accentBg:"rgba(245,158,11,0.10)",
-  bg:"#F4F6FA", card:"#FFFFFF", border:"#E4E7EC", borderMid:"#D1D5DB",
-  text:"#101828", textSub:"#344054", textMuted:"#667085",
-  success:"#12B76A", successBg:"#D1FADF",
-  warning:"#F79009", warningBg:"#FEF0C7",
-  danger:"#F04438", dangerBg:"#FEE4E2",
-  info:"#2E90FA", infoBg:"#D1E9FF",
-  purple:"#7F56D9", purpleBg:"#F4EBFF",
-};
+const CATEGORIES = ["Myntra PPMP","PPMP Myntra","C1 Feeder","Other Feeders","AIR NDD Feeders","Airport Feeder","FK/ MYN Feeders","FM SDD Feeders","Large NDD Feeders","NDD Feeders","C1 Feeder (SDD)","C1 Feeder(Air NDD)","C1 Feeder (Intra&zonal)"];
 
-const STATUS_META = {
-  completed:    { label:"Completed",   dot:"#12B76A", bg:"#D1FADF", text:"#027A48" },
-  "in-progress":{ label:"In Progress", dot:"#F79009", bg:"#FEF0C7", text:"#B54708" },
-  pending:      { label:"Pending",     dot:"#F04438", bg:"#FEE4E2", text:"#B42318" },
-  idle:         { label:"Idle",        dot:"#98A2B3", bg:"#F2F4F7", text:"#344054" },
-  transit:      { label:"In Transit",  dot:"#2E90FA", bg:"#D1E9FF", text:"#1849A9" },
-};
-
-/* ═══════════════════ MOCK DATA (will be replaced by Supabase) ═══════════════════ */
-const CLIENTS_INIT = [
-  { id:"C1", name:"Flipkart - Noida WH",   address:"A-20, Sector 18, Noida",         lat:28.5714, lng:77.3219, spoc:"Amit Kumar",  contact:"9876543210",
-    models:{ SDD:{enabled:true,cutoff:"09:00–13:00"}, AIR:{enabled:true,cutoff:"11:00–15:00"}, NDD:{enabled:true,cutoff:"17:00–21:00"} } },
-  { id:"C2", name:"Meesho Sortation",       address:"Plot 5B, Sector 62, Noida",       lat:28.6241, lng:77.3780, spoc:"Priya Singh",  contact:"9876543211",
-    models:{ SDD:{enabled:true,cutoff:"10:00–13:30"}, AIR:{enabled:false,cutoff:""}, NDD:{enabled:true,cutoff:"18:00–22:00"} } },
-  { id:"C3", name:"Amazon FC Kundli",       address:"NH-44, Kundli, Sonipat",          lat:28.8955, lng:77.1167, spoc:"Rahul Verma",  contact:"9876543212",
-    models:{ SDD:{enabled:true,cutoff:"08:30–12:30"}, AIR:{enabled:true,cutoff:"12:00–16:00"}, NDD:{enabled:true,cutoff:"19:00–23:00"} } },
-  { id:"C4", name:"Myntra Hub Gurgaon",     address:"Udyog Vihar Ph-4, Gurugram",      lat:28.4989, lng:77.0769, spoc:"Neha Gupta",   contact:"9876543213",
-    models:{ SDD:{enabled:false,cutoff:""}, AIR:{enabled:true,cutoff:"13:00–17:00"}, NDD:{enabled:true,cutoff:"20:00–23:00"} } },
-  { id:"C5", name:"Snapdeal Jasola",         address:"Jasola Industrial, South Delhi",  lat:28.5494, lng:77.2842, spoc:"Vikram Rathi", contact:"9876543214",
-    models:{ SDD:{enabled:true,cutoff:"09:30–13:00"}, AIR:{enabled:false,cutoff:""}, NDD:{enabled:true,cutoff:"18:30–22:00"} } },
-  { id:"C6", name:"Delhivery - Rai",         address:"Rai Industrial, Sonipat",         lat:28.9167, lng:77.0833, spoc:"Ankit Sharma", contact:"9876543215",
-    models:{ SDD:{enabled:true,cutoff:"08:00–12:00"}, AIR:{enabled:true,cutoff:"11:00–15:00"}, NDD:{enabled:false,cutoff:""} } },
-  { id:"C7", name:"Zomato Dark Store CP",    address:"Connaught Place, New Delhi",      lat:28.6292, lng:77.2082, spoc:"Mohit Bansal", contact:"9876543217",
-    models:{ SDD:{enabled:true,cutoff:"10:00–13:00"}, AIR:{enabled:false,cutoff:""}, NDD:{enabled:true,cutoff:"21:00–23:30"} } },
-  { id:"C8", name:"AJIO WH Noida",           address:"Sector 83, Noida",                lat:28.5480, lng:77.3900, spoc:"Tanvi Arora",  contact:"9876543218",
-    models:{ SDD:{enabled:true,cutoff:"09:00–13:00"}, AIR:{enabled:true,cutoff:"12:00–16:00"}, NDD:{enabled:true,cutoff:"19:00–22:00"} } },
+const RIDERS_DATA = [
+  {id:1,name:"Arjun Sharma",phone:"+91-9876543210",assignedCluster:"Shadowfax Cluster 1",riderId:"SF001",status:"active",vehicle:"Bike",totalDeliveries:245,onTimeRate:94,currentLocation:{lat:28.7041,lng:77.1025},activeOrders:5,todayOrders:12,role:"rider",schedule:{start:"08:00",end:"18:00"}},
+  {id:2,name:"Priya Singh",phone:"+91-9876543211",assignedCluster:"Shadowfax Cluster 2",riderId:"SF002",status:"active",vehicle:"Van",totalDeliveries:312,onTimeRate:96,currentLocation:{lat:28.5355,lng:77.3910},activeOrders:3,todayOrders:10,role:"rider",schedule:{start:"09:00",end:"19:00"}},
+  {id:3,name:"Rahul Verma",phone:"+91-9876543212",assignedCluster:"Shadowfax Cluster 1",riderId:"SF003",status:"inactive",vehicle:"Bike",totalDeliveries:198,onTimeRate:91,currentLocation:{lat:28.6692,lng:77.4538},activeOrders:0,todayOrders:0,role:"rider",schedule:{start:"08:00",end:"18:00"}},
+  {id:4,name:"Sneha Patel",phone:"+91-9876543213",assignedCluster:"Shadowfax Cluster 3",riderId:"SF004",status:"active",vehicle:"Bike",totalDeliveries:276,onTimeRate:95,currentLocation:{lat:28.4595,lng:77.0266},activeOrders:7,todayOrders:15,role:"rider",schedule:{start:"07:00",end:"17:00"}},
+  {id:5,name:"Amit Kumar",phone:"+91-9876543214",assignedCluster:"Shadowfax Cluster 2",riderId:"SF005",status:"active",vehicle:"Van",totalDeliveries:334,onTimeRate:97,currentLocation:{lat:28.6139,lng:77.2090},activeOrders:4,todayOrders:11,role:"rider",schedule:{start:"10:00",end:"20:00"}},
+  {id:6,name:"Neha Gupta",phone:"+91-9876543215",assignedCluster:"Shadowfax Cluster 1",riderId:"SF006",status:"inactive",vehicle:"Bike",totalDeliveries:187,onTimeRate:89,currentLocation:{lat:28.5244,lng:77.1855},activeOrders:0,todayOrders:0,role:"rider",schedule:{start:"08:00",end:"18:00"}},
+  {id:7,name:"Vikram Rao",phone:"+91-9876543216",assignedCluster:"Shadowfax Cluster 3",riderId:"SF007",status:"active",vehicle:"Bike",totalDeliveries:301,onTimeRate:93,currentLocation:{lat:28.6700,lng:77.4500},activeOrders:6,todayOrders:13,role:"rider",schedule:{start:"09:00",end:"19:00"}},
+  {id:8,name:"Anjali Desai",phone:"+91-9876543217",assignedCluster:"Shadowfax Cluster 2",riderId:"SF008",status:"active",vehicle:"Van",totalDeliveries:289,onTimeRate:94,currentLocation:{lat:28.4800,lng:77.0800},activeOrders:5,todayOrders:12,role:"rider",schedule:{start:"08:00",end:"18:00"}}
 ];
 
-const CLUSTERS_INIT = [
-  { id:"CL1", name:"SDD-Noida-1",   model:"SDD", clientIds:["C1","C2","C8"], riderId:"R1", color:"#F59E0B" },
-  { id:"CL2", name:"SDD-Sonipat",   model:"SDD", clientIds:["C3","C6"],       riderId:"R2", color:"#F59E0B" },
-  { id:"CL3", name:"AIR-Noida",     model:"AIR", clientIds:["C1","C3","C8"], riderId:"R3", color:"#06B6D4" },
-  { id:"CL4", name:"AIR-Gurgaon",   model:"AIR", clientIds:["C4"],            riderId:null, color:"#06B6D4" },
-  { id:"CL5", name:"NDD-Noida",     model:"NDD", clientIds:["C1","C2","C8"], riderId:"R4", color:"#6366F1" },
-  { id:"CL6", name:"NDD-Delhi-S",   model:"NDD", clientIds:["C5","C7"],       riderId:null, color:"#6366F1" },
+const CLIENTS_DATA = [
+  {id:1,name:"Myntra PPMP",address:"Sector 18, Gurugram",contact:"+91-124-4567890",category:"Myntra PPMP",status:"active",cutoffTime:"10:00 AM",riders:[{id:1,name:"Arjun Sharma"},{id:2,name:"Priya Singh"}],geofence:{center:{lat:28.4595,lng:77.0266},radius:500},pickupType:"SDD",monthlyPickups:450,onTimeRate:96,lat:28.4595,lng:77.0266},
+  {id:2,name:"Airport Feeder Hub",address:"Terminal 3, IGI Airport",contact:"+91-11-2567-3000",category:"Airport Feeder",status:"active",cutoffTime:"2:00 PM",riders:[{id:3,name:"Rahul Verma"}],geofence:{center:{lat:28.5562,lng:77.1000},radius:300},pickupType:"AIR",monthlyPickups:380,onTimeRate:94,lat:28.5562,lng:77.1000},
+  {id:3,name:"C1 Feeder SDD",address:"Udyog Vihar Phase 1",contact:"+91-124-4321098",category:"C1 Feeder (SDD)",status:"active",cutoffTime:"11:00 AM",riders:[{id:4,name:"Sneha Patel"},{id:5,name:"Amit Kumar"}],geofence:{center:{lat:28.4940,lng:77.0787},radius:600},pickupType:"SDD",monthlyPickups:520,onTimeRate:97,lat:28.4940,lng:77.0787},
+  {id:4,name:"Large NDD Feeders",address:"Manesar Industrial Area",contact:"+91-124-2345678",category:"Large NDD Feeders",status:"active",cutoffTime:"8:00 PM",riders:[{id:6,name:"Neha Gupta"}],geofence:{center:{lat:28.3614,lng:76.9311},radius:700},pickupType:"NDD",monthlyPickups:610,onTimeRate:95,lat:28.3614,lng:76.9311},
+  {id:5,name:"FM SDD Feeders",address:"DLF Cyber City",contact:"+91-124-6789012",category:"FM SDD Feeders",status:"active",cutoffTime:"12:00 PM",riders:[{id:7,name:"Vikram Rao"},{id:8,name:"Anjali Desai"}],geofence:{center:{lat:28.4950,lng:77.0890},radius:400},pickupType:"SDD",monthlyPickups:490,onTimeRate:93,lat:28.4950,lng:77.0890},
+  {id:6,name:"Other Feeders Central",address:"Sohna Road, Sector 47",contact:"+91-124-8901234",category:"Other Feeders",status:"inactive",cutoffTime:"3:00 PM",riders:[],geofence:{center:{lat:28.4089,lng:77.0601},radius:350},pickupType:"AIR",monthlyPickups:0,onTimeRate:0,lat:28.4089,lng:77.0601}
 ];
 
-const RIDERS_INIT = [
-  { id:"R1", name:"Raju Singh",    code:"PB-001", phone:"9876541001", vehicle:"DL-1C-1234", shift:"A" },
-  { id:"R2", name:"Suresh Kumar",  code:"PB-002", phone:"9876541002", vehicle:"HR-26-5678", shift:"A" },
-  { id:"R3", name:"Mahesh Yadav",  code:"PB-003", phone:"9876541003", vehicle:"DL-2C-9012", shift:"A" },
-  { id:"R4", name:"Deepak Nath",   code:"PB-004", phone:"9876541004", vehicle:"UP-14-3456", shift:"B" },
-  { id:"R5", name:"Ajay Bhatt",    code:"PB-005", phone:"9876541005", vehicle:"DL-7C-7890", shift:"A" },
-  { id:"R6", name:"Vikas Sharma",  code:"PB-006", phone:"9876541006", vehicle:"DL-5P-2345", shift:"B" },
+const CLUSTERS_DATA = [
+  {id:1,name:"Shadowfax Cluster 1",region:"North Delhi",clients:[CLIENTS_DATA[0],CLIENTS_DATA[2]],riders:[RIDERS_DATA[0],RIDERS_DATA[2],RIDERS_DATA[5]],status:"active",capacity:15,currentLoad:8,efficiency:92,avgDeliveryTime:"45 min",coverage:{lat:28.7041,lng:77.1025,radius:5000}},
+  {id:2,name:"Shadowfax Cluster 2",region:"South Delhi",clients:[CLIENTS_DATA[1]],riders:[RIDERS_DATA[1],RIDERS_DATA[4],RIDERS_DATA[7]],status:"active",capacity:12,currentLoad:6,efficiency:88,avgDeliveryTime:"52 min",coverage:{lat:28.5355,lng:77.3910,radius:4500}},
+  {id:3,name:"Shadowfax Cluster 3",region:"Gurugram",clients:[CLIENTS_DATA[3],CLIENTS_DATA[4]],riders:[RIDERS_DATA[3],RIDERS_DATA[6]],status:"active",capacity:18,currentLoad:12,efficiency:95,avgDeliveryTime:"38 min",coverage:{lat:28.4595,lng:77.0266,radius:6000}}
 ];
 
-const PICKUPS_INIT = {
-  "R1-C1":{ status:"completed",   packets:45, arrivedAt:"10:15", completedAt:"10:45" },
-  "R1-C2":{ status:"completed",   packets:28, arrivedAt:"11:10", completedAt:"11:38" },
-  "R1-C8":{ status:"in-progress", packets:0,  arrivedAt:"12:10", completedAt:null    },
-  "R2-C3":{ status:"completed",   packets:32, arrivedAt:"09:20", completedAt:"09:55" },
-  "R2-C6":{ status:"completed",   packets:46, arrivedAt:"10:30", completedAt:"11:10" },
-  "R3-C1":{ status:"pending",     packets:0,  arrivedAt:null,     completedAt:null   },
-  "R3-C3":{ status:"pending",     packets:0,  arrivedAt:null,     completedAt:null   },
-  "R4-C1":{ status:"pending",     packets:0,  arrivedAt:null,     completedAt:null   },
-  "R4-C2":{ status:"pending",     packets:0,  arrivedAt:null,     completedAt:null   },
-};
-
-// Mock rider locations (will be real-time from Supabase)
-const RIDER_LOCATIONS_INIT = {
-  R1: { lat: 28.5714, lng: 77.3219, accuracy: 15, timestamp: new Date().toISOString() },
-  R2: { lat: 28.8955, lng: 77.1167, accuracy: 20, timestamp: new Date().toISOString() },
-  R3: { lat: 28.6241, lng: 77.3780, accuracy: 12, timestamp: new Date().toISOString() },
-  R4: { lat: 28.5494, lng: 77.2842, accuracy: 18, timestamp: new Date().toISOString() },
-  R5: { lat: 28.5480, lng: 77.3900, accuracy: 25, timestamp: new Date().toISOString() },
-};
-
-const TREND = [
-  { day:"Mon", SDD:14, AIR:5, NDD:9  },
-  { day:"Tue", SDD:17, AIR:7, NDD:12 },
-  { day:"Wed", SDD:11, AIR:4, NDD:8  },
-  { day:"Thu", SDD:19, AIR:8, NDD:14 },
-  { day:"Fri", SDD:15, AIR:6, NDD:11 },
-  { day:"Sat", SDD:9,  AIR:3, NDD:7  },
-  { day:"Now", SDD:6,  AIR:3, NDD:4  },
+const PICKUPS_DATA = [
+  {id:1,clientId:1,clientName:"Myntra PPMP",riderId:1,riderName:"Arjun Sharma",status:"completed",scheduledTime:"10:30 AM",completedTime:"10:25 AM",type:"SDD",packages:12,weight:"45 kg",location:{lat:28.4595,lng:77.0266},delay:0},
+  {id:2,clientId:2,clientName:"Airport Feeder Hub",riderId:3,riderName:"Rahul Verma",status:"in-progress",scheduledTime:"2:00 PM",completedTime:null,type:"AIR",packages:8,weight:"32 kg",location:{lat:28.5562,lng:77.1000},delay:0},
+  {id:3,clientId:3,clientName:"C1 Feeder SDD",riderId:4,riderName:"Sneha Patel",status:"pending",scheduledTime:"11:00 AM",completedTime:null,type:"SDD",packages:15,weight:"58 kg",location:{lat:28.4940,lng:77.0787},delay:5},
+  {id:4,clientId:4,clientName:"Large NDD Feeders",riderId:6,riderName:"Neha Gupta",status:"delayed",scheduledTime:"8:00 PM",completedTime:null,type:"NDD",packages:20,weight:"78 kg",location:{lat:28.3614,lng:76.9311},delay:15},
+  {id:5,clientId:5,clientName:"FM SDD Feeders",riderId:7,riderName:"Vikram Rao",status:"completed",scheduledTime:"12:00 PM",completedTime:"11:55 AM",type:"SDD",packages:10,weight:"38 kg",location:{lat:28.4950,lng:77.0890},delay:0}
 ];
 
-const USERS_INIT = [
-  { id:"U1", name:"Rajesh Tiwari",  email:"rajesh@shadowfax.in",  role:"supervisor", perms:["clients","clusters","riders","status","reports"], active:true },
-  { id:"U2", name:"Pradeep Mishra", email:"pradeep@shadowfax.in", role:"supervisor", perms:["clients","clusters"],                              active:true },
-  { id:"U3", name:"Sunita Rao",     email:"sunita@shadowfax.in",  role:"supervisor", perms:["status","reports"],                               active:false },
-];
-
-/* ═══════════════════ DATABASE HELPERS (Supabase) ═══════════════════ */
-// These functions will replace mock data once Supabase is connected
-
-async function fetchClients() {
-  if (!supabase) return CLIENTS_INIT;
-  const { data, error } = await supabase.from('clients').select('*');
-  if (error) { console.error('Error fetching clients:', error); return CLIENTS_INIT; }
-  return data;
-}
-
-async function fetchClusters() {
-  if (!supabase) return CLUSTERS_INIT;
-  const { data, error } = await supabase.from('clusters').select('*');
-  if (error) { console.error('Error fetching clusters:', error); return CLUSTERS_INIT; }
-  return data;
-}
-
-async function fetchRiders() {
-  if (!supabase) return RIDERS_INIT;
-  const { data, error } = await supabase.from('riders').select('*');
-  if (error) { console.error('Error fetching riders:', error); return RIDERS_INIT; }
-  return data;
-}
-
-async function fetchPickups() {
-  if (!supabase) return PICKUPS_INIT;
-  const { data, error } = await supabase.from('pickups').select('*');
-  if (error) { console.error('Error fetching pickups:', error); return PICKUPS_INIT; }
-  // Convert array to keyed object
-  return data.reduce((acc, p) => ({ ...acc, [`${p.rider_id}-${p.client_id}`]: p }), {});
-}
-
-async function fetchRiderLocations() {
-  if (!supabase) return RIDER_LOCATIONS_INIT;
-  const { data, error } = await supabase.from('rider_locations').select('*');
-  if (error) { console.error('Error fetching locations:', error); return RIDER_LOCATIONS_INIT; }
-  return data.reduce((acc, loc) => ({ ...acc, [loc.rider_id]: loc }), {});
-}
-
-// Real-time subscription setup (activate after Supabase setup)
-function subscribeToRiderLocations(callback) {
-  if (!supabase) return () => {};
-  const channel = supabase
-    .channel('rider-locations')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'rider_locations' }, payload => {
-      callback(payload.new);
-    })
-    .subscribe();
-  return () => supabase.removeChannel(channel);
-}
-
-/* ═══════════════════ HELPERS ═══════════════════ */
-function getRiderStatus(riderId, clusters, pickups) {
-  const cl = clusters.find(c => c.riderId === riderId);
-  if (!cl || !cl.clientIds.length) return "idle";
-  const cids = cl.clientIds;
-  const done = cids.filter(cid => pickups[`${riderId}-${cid}`]?.status === "completed").length;
-  const inP  = cids.some(cid => pickups[`${riderId}-${cid}`]?.status === "in-progress");
-  if (done === cids.length) return "completed";
-  if (done > 0 || inP) return "in-progress";
-  return "pending";
-}
-
-/* ═══════════════════ ATOMS (UI Components) ═══════════════════ */
-function GS() {
-  return (
-    <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Syne:wght@700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
-      @import url('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css');
-      *{box-sizing:border-box;margin:0;padding:0}
-      html,body,#root{height:100%;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px}
-      ::-webkit-scrollbar{width:4px;height:4px}
-      ::-webkit-scrollbar-track{background:transparent}
-      ::-webkit-scrollbar-thumb{background:#D0D5DD;border-radius:4px}
-      input,button,select,textarea{font-family:'Plus Jakarta Sans',sans-serif}
-      a{text-decoration:none;color:inherit}
-      .row-h:hover{background:#F9FAFB!important;transition:background 0.1s}
-      .nav-h:hover{background:rgba(255,255,255,0.07)!important;color:#F2F4F7!important}
-      .c-btn:hover{opacity:0.88}
-      .s-btn:hover{background:#F9FAFB!important}
-      .chip-h:hover{opacity:0.75;cursor:pointer}
-      .tab-h:hover{color:#344054!important}
-      .leaflet-container{height:100%;border-radius:12px}
-    `}</style>
-  );
-}
-
-function ModelBadge({ model, size="sm" }) {
-  const m = MODELS[model];
-  if (!m) return null;
-  const p = size === "sm" ? "2px 9px" : size === "md" ? "4px 12px" : "6px 16px";
-  const fs = size === "sm" ? 10 : size === "md" ? 11 : 13;
-  return (
-    <span style={{ background:m.bg, color:m.text, fontSize:fs, fontWeight:700,
-      padding:p, borderRadius:20, whiteSpace:"nowrap", border:`1px solid ${m.border}`,
-      display:"inline-flex", alignItems:"center", gap:4, letterSpacing:"0.02em" }}>
-      <span style={{ fontSize:fs-1 }}>{m.icon}</span>{m.short}
-    </span>
-  );
-}
-
-function ModelTabs({ active, onChange, counts }) {
-  return (
-    <div style={{ display:"flex", gap:4, background:"#F2F4F7", borderRadius:10, padding:4 }}>
-      { Object.values(MODELS).map(m => {
-        const isA = active === m.key;
-        const cnt = counts?.[m.key] ?? "";
-        return (
-          <button key={m.key} onClick={() => onChange(m.key)}
-            style={{ flex:1, padding:"7px 14px", borderRadius:7, border:"none", cursor:"pointer",
-              background: isA ? "#fff" : "transparent",
-              color: isA ? m.color : "#667085",
-              fontWeight: isA ? 700 : 500, fontSize:12, transition:"all 0.15s",
-              boxShadow: isA ? "0 1px 4px rgba(0,0,0,0.10)" : "none",
-              display:"flex", alignItems:"center", justifyContent:"center", gap:6,
-              fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
-            <span style={{ fontSize:13 }}>{m.icon}</span>
-            {m.short}
-            {cnt !== "" && (
-              <span style={{ background: isA ? m.bg : "#E4E7EC", color: isA ? m.text : "#667085",
-                fontSize:9, fontWeight:800, padding:"1px 6px", borderRadius:9, minWidth:16, textAlign:"center" }}>
-                {cnt}
-              </span>
-            )}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function StatusPill({ status }) {
-  const m = STATUS_META[status] || STATUS_META.idle;
-  return (
-    <span style={{ display:"inline-flex", alignItems:"center", gap:5, background:m.bg, color:m.text,
-      fontSize:11, fontWeight:600, padding:"3px 10px", borderRadius:20, whiteSpace:"nowrap" }}>
-      <span style={{ width:5, height:5, borderRadius:"50%", background:m.dot, display:"inline-block" }}/>
-      {m.label}
-    </span>
-  );
-}
-
-function Av({ name, size=32, bg="#1E3A5F" }) {
-  const ini = (name || "??").split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase();
-  return (
-    <div style={{ width:size, height:size, borderRadius:"50%", background:bg, color:"#fff",
-      display:"flex", alignItems:"center", justifyContent:"center",
-      fontSize:size*0.36, fontWeight:700, flexShrink:0, letterSpacing:"-0.01em" }}>
-      {ini}
-    </div>
-  );
-}
-
-function KpiCard({ icon:Icon, label, value, sub, color=C.accent, delta }) {
-  return (
-    <div style={{ background:C.card, borderRadius:12, padding:"18px 20px",
-      border:`1px solid ${C.border}`, display:"flex", flexDirection:"column", gap:12 }}>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
-        <span style={{ fontSize:10, fontWeight:700, color:C.textMuted, letterSpacing:"0.07em",
-          textTransform:"uppercase", fontFamily:"'Plus Jakarta Sans',sans-serif" }}>{label}</span>
-        <div style={{ width:32, height:32, borderRadius:8, background:`${color}18`,
-          display:"flex", alignItems:"center", justifyContent:"center" }}>
-          <Icon size={14} color={color}/>
-        </div>
-      </div>
-      <div>
-        <div style={{ fontSize:28, fontWeight:800, color:C.text, lineHeight:1,
-          fontFamily:"Syne,sans-serif" }}>{value}</div>
-        <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:5 }}>
-          {sub && <div style={{ fontSize:11, color:C.textMuted }}>{sub}</div>}
-          {delta && <span style={{ fontSize:10, fontWeight:700, color:delta.startsWith("+")?C.success:C.danger }}>{delta}</span>}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Btn({ children, onClick, variant="primary", icon:Icon, size="md", style:ex={} }) {
-  const V = {
-    primary:   { background:C.accent,   color:"#fff",      border:"none", cls:"c-btn" },
-    secondary: { background:"#fff",     color:C.textSub,   border:`1px solid ${C.border}`, cls:"s-btn" },
-    ghost:     { background:"transparent",color:C.textMuted,border:"none", cls:"s-btn" },
-    danger:    { background:C.danger,   color:"#fff",      border:"none", cls:"c-btn" },
-    dark:      { background:"#101828",  color:"#fff",      border:"none", cls:"c-btn" },
-  };
-  const SZ = { sm:{padding:"6px 12px",fontSize:11,gap:5}, md:{padding:"8px 16px",fontSize:13,gap:6}, lg:{padding:"10px 20px",fontSize:14,gap:7} };
-  const v = V[variant]; const s = SZ[size];
-  return (
-    <button onClick={onClick} className={v.cls}
-      style={{ ...v, ...s, borderRadius:8, fontWeight:600, cursor:"pointer",
-        display:"inline-flex", alignItems:"center", justifyContent:"center",
-        transition:"all 0.15s", gap:s.gap, fontFamily:"'Plus Jakarta Sans',sans-serif", ...ex }}>
-      {Icon && <Icon size={size==="sm"?11:13}/>}{children}
-    </button>
-  );
-}
-
-function CardWrap({ children, style:ex={}, noPad, onClick }) {
-  return (
-    <div onClick={onClick} style={{ background:C.card, borderRadius:12,
-      border:`1px solid ${C.border}`, ...(noPad?{}:{padding:"20px 22px"}), ...ex }}>
-      {children}
-    </div>
-  );
-}
-
-function Modal({ show, onClose, title, width=560, children }) {
-  if (!show) return null;
-  return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(16,24,40,0.6)", zIndex:1000,
-      display:"flex", alignItems:"center", justifyContent:"center", backdropFilter:"blur(4px)" }}>
-      <div style={{ background:C.card, borderRadius:16, width, maxWidth:"95vw",
-        maxHeight:"90vh", display:"flex", flexDirection:"column",
-        boxShadow:"0 24px 72px rgba(0,0,0,0.24)" }}>
-        <div style={{ padding:"18px 24px", borderBottom:`1px solid ${C.border}`,
-          display:"flex", justifyContent:"space-between", alignItems:"center", flexShrink:0 }}>
-          <h3 style={{ fontSize:16, fontWeight:700, color:C.text, fontFamily:"Syne,sans-serif" }}>{title}</h3>
-          <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer",
-            color:C.textMuted, padding:4, borderRadius:6, display:"flex" }}>
-            <X size={16}/>
-          </button>
-        </div>
-        <div style={{ padding:"22px 24px", overflowY:"auto", flex:1 }}>{children}</div>
-      </div>
-    </div>
-  );
-}
-
-function FF({ label, required, children, full, hint }) {
-  return (
-    <div style={{ marginBottom:13, ...(full ? { gridColumn:"1/-1" } : {}) }}>
-      <label style={{ display:"block", fontSize:11, fontWeight:700, color:C.textMuted,
-        marginBottom:5, letterSpacing:"0.05em", textTransform:"uppercase" }}>
-        {label}{required && <span style={{ color:C.danger }}> *</span>}
-        {hint && <span style={{ fontWeight:400, textTransform:"none", marginLeft:6, letterSpacing:0 }}>({hint})</span>}
-      </label>
-      {children}
-    </div>
-  );
-}
-
-function FI({ value, onChange, placeholder, type="text", disabled }) {
-  return (
-    <input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}
-      disabled={disabled}
-      style={{ width:"100%", padding:"9px 12px", border:`1px solid ${C.border}`, borderRadius:8,
-        fontSize:13, color:disabled?"#98A2B3":C.text, background:disabled?"#F9FAFB":"#fff",
-        outline:"none", cursor:disabled?"not-allowed":"text" }}
-      onFocus={e=>{ if(!disabled) e.target.style.borderColor=C.accent; }}
-      onBlur={e=>e.target.style.borderColor=C.border}
-    />
-  );
-}
-
-function SH({ children, action }) {
-  return (
-    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-      <div style={{ fontSize:13, fontWeight:700, color:C.textSub, letterSpacing:"0.01em" }}>{children}</div>
-      {action}
-    </div>
-  );
-}
-
-function Table({ columns, rows, actions, emptyMsg="No records" }) {
-  return (
-    <div style={{ overflowX:"auto" }}>
-      <table style={{ width:"100%", borderCollapse:"collapse" }}>
-        <thead>
-          <tr style={{ borderBottom:`2px solid ${C.border}`, background:"#F9FAFB" }}>
-            {columns.map(c => (
-              <th key={c.key} style={{ padding:"10px 16px", color:C.textMuted, fontSize:10, fontWeight:700,
-                letterSpacing:"0.08em", textTransform:"uppercase", textAlign:"left", whiteSpace:"nowrap" }}>
-                {c.label}
-              </th>
-            ))}
-            {actions && <th style={{ padding:"10px 16px", width:140 }}/>}
-          </tr>
-        </thead>
-        <tbody>
-          {!rows.length
-            ? <tr><td colSpan={columns.length+1} style={{ padding:32, textAlign:"center", color:C.textMuted, fontSize:13 }}>{emptyMsg}</td></tr>
-            : rows.map((row, i) => (
-              <tr key={row.id} className="row-h"
-                style={{ borderBottom:`1px solid ${C.border}`, background:i%2===0?"#fff":"#FAFBFC" }}>
-                {columns.map(col => (
-                  <td key={col.key} style={{ padding:"12px 16px", fontSize:13, color:C.text, verticalAlign:"middle" }}>
-                    {col.render ? col.render(row) : row[col.key]}
-                  </td>
-                ))}
-                {actions && (
-                  <td style={{ padding:"12px 16px" }}>
-                    <div style={{ display:"flex", gap:6, justifyContent:"flex-end" }}>{actions(row)}</div>
-                  </td>
-                )}
-              </tr>
-            ))
-          }
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-/* ═══════════════════ SIDEBAR ═══════════════════ */
+/* ═══════════════════ NAV & TITLES ═══════════════════ */
 const NAV = [
-  { id:"dashboard", icon:LayoutDashboard, label:"Dashboard", roles:["admin", "supervisor", "rider"] },
-  { id:"clients",   icon:Building2,       label:"Client Master", roles:["admin", "supervisor"] },
-  { id:"clusters",  icon:GitFork,         label:"Cluster Board", roles:["admin", "supervisor"] },
-  { id:"riders",    icon:Users,           label:"Rider Management", roles:["admin", "supervisor"] },
-  { id:"map",       icon:Map,             label:"Live Tracking", roles:["admin", "supervisor"] }, // 🔒 ONLY ADMIN & SUPERVISOR
-  { id:"reports",   icon:BarChart2,       label:"Reports", roles:["admin", "supervisor"] },
-  { id:"roles",     icon:Shield,          label:"User & Roles", roles:["admin"] },
-  { id:"users",     icon:Users,           label:"User Management", roles:["admin"] },
+  { id:"dashboard", icon:LayoutDashboard, label:"Dashboard",        roles:["admin","supervisor","rider"] },
+  { id:"import",    icon:Upload,          label:"Daily Import",      roles:["admin","supervisor"] },
+  { id:"clients",   icon:Building2,       label:"Client Master",     roles:["admin","supervisor"] },
+  { id:"clusters",  icon:GitFork,         label:"Cluster Board",     roles:["admin","supervisor"] },
+  { id:"riders",    icon:Users,           label:"Rider Management",  roles:["admin","supervisor"] },
+  { id:"live",      icon:Map,             label:"Live Tracking",     roles:["admin","supervisor","rider"] },
+  { id:"reports",   icon:BarChart2,       label:"Reports",           roles:["admin","supervisor"] },
+  { id:"users",     icon:Shield,          label:"User Management",   roles:["admin"] },
 ];
 
-function Sidebar({ view, setView, role, setRole, userRole }) {
-  // Filter navigation items based on VIEW AS role (not actual user role)
-  const allowedNav = NAV.filter(item => item.roles.includes(role));
-  
-  return (
-    <div style={{ width:230, background:C.sidebar, display:"flex", flexDirection:"column", flexShrink:0, height:"100vh" }}>
-      <div style={{ padding:"18px 16px 14px", borderBottom:"1px solid rgba(255,255,255,0.06)" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <div style={{ width:34, height:34, background:C.accent, borderRadius:9,
-            display:"flex", alignItems:"center", justifyContent:"center" }}>
-            <Truck size={16} color="#fff"/>
-          </div>
-          <div>
-            <div style={{ color:"#F2F4F7", fontWeight:800, fontSize:15, fontFamily:"Syne,sans-serif", letterSpacing:"-0.01em" }}>PickupOS</div>
-            <div style={{ color:"#3D4A5C", fontSize:9, fontWeight:700, letterSpacing:"0.12em", textTransform:"uppercase" }}>Shadowfax · NCR Ops</div>
-          </div>
-        </div>
-      </div>
-
-      <nav style={{ flex:1, padding:"10px 8px", overflowY:"auto" }}>
-        <div style={{ fontSize:9, fontWeight:700, color:"#2D3A4A", letterSpacing:"0.14em",
-          textTransform:"uppercase", padding:"8px 10px 4px", marginBottom:2 }}>Operations</div>
-        {allowedNav.map(item => {
-          const isA = view === item.id;
-          return (
-            <button key={item.id} onClick={() => setView(item.id)} className={isA?"":"nav-h"}
-              style={{ width:"100%", display:"flex", alignItems:"center", gap:9, padding:"8px 11px",
-                borderRadius:8, border:"none", cursor:"pointer", marginBottom:1, textAlign:"left",
-                background: isA ? "rgba(245,158,11,0.12)" : "transparent",
-                color: isA ? C.accent : "#4D5B6E",
-                fontWeight: isA ? 600 : 400, fontSize:13, transition:"all 0.12s", fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
-              <item.icon size={15} style={{ flexShrink:0 }}/>
-              <span style={{ flex:1 }}>{item.label}</span>
-              {isA && <ChevronRight size={11}/>}
-            </button>
-          );
-        })}
-      </nav>
-
-      <div style={{ padding:"12px 10px 16px", borderTop:"1px solid rgba(255,255,255,0.06)" }}>
-        {/* Only show "View As" for admin and supervisor users */}
-        {(userRole === "admin" || userRole === "supervisor") && (
-          <div style={{ marginBottom:12 }}>
-            <div style={{ fontSize:9, color:"#3D4A5C", fontWeight:700, letterSpacing:"0.1em",
-              textTransform:"uppercase", marginBottom:6 }}>View As</div>
-            <div style={{ display:"flex", gap:4 }}>
-              {["admin","supervisor"].map(r => (
-                <button key={r} onClick={() => setRole(r)}
-                  style={{ flex:1, padding:"5px 0", borderRadius:6, border:"none", cursor:"pointer",
-                    background: role===r ? C.accent : "rgba(255,255,255,0.06)",
-                    color: role===r ? "#fff" : "#4D5B6E",
-                    fontSize:9, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.06em",
-                    fontFamily:"'Plus Jakarta Sans',sans-serif", transition:"all 0.15s" }}>
-                  {r}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        <div style={{ display:"flex", alignItems:"center", gap:9 }}>
-          <Av name="Arjun Sharma" size={30} bg="#1E293B"/>
-          <div style={{ flex:1, overflow:"hidden" }}>
-            <div style={{ color:"#C8D0DC", fontSize:12, fontWeight:600, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>Arjun Sharma</div>
-            <div style={{ color:"#3D4A5C", fontSize:10 }}>NCR Director</div>
-          </div>
-          <button style={{ background:"none", border:"none", cursor:"pointer", color:"#3D4A5C", padding:2 }}>
-            <LogOut size={13}/>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ═══════════════════ TOPBAR ═══════════════════ */
 const TITLES = {
-  dashboard:"Dashboard", clients:"Client Master", clusters:"Cluster Board",
-  riders:"Rider Management", map:"Live Tracking", reports:"Reports & Analytics", roles:"User & Roles",
-  users:"User Management",
+  dashboard:"Dashboard", import:"Daily Import", clients:"Client Master",
+  clusters:"Cluster Board", riders:"Rider Management", live:"Live Tracking",
+  reports:"Reports", users:"User Management"
 };
 
-function TopBar({ view, role, user, onLogout }) {
-  const t = new Date();
-  return (
-    <div style={{ height:56, background:"#fff", borderBottom:`1px solid ${C.border}`,
-      display:"flex", alignItems:"center", justifyContent:"space-between",
-      padding:"0 24px", flexShrink:0, zIndex:10 }}>
-      <div>
-        <div style={{ fontSize:10, color:C.textMuted, fontWeight:500, marginBottom:1 }}>
-          Shadowfax › NCR › Middle Mile Ops
-        </div>
-        <div style={{ fontSize:16, fontWeight:800, color:C.text, fontFamily:"Syne,sans-serif", lineHeight:1 }}>
-          {TITLES[view]}
-        </div>
-      </div>
-      <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-        <div style={{ position:"relative" }}>
-          <Search size={12} style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", color:C.textMuted }}/>
-          <input placeholder="Search anything..." style={{ paddingLeft:28, paddingRight:10,
-            padding:"7px 10px 7px 28px", border:`1px solid ${C.border}`, borderRadius:8,
-            fontSize:12, color:C.text, background:"#F9FAFB", outline:"none", width:220 }}/>
-        </div>
-        <button style={{ background:"none", border:`1px solid ${C.border}`, borderRadius:8,
-          padding:"7px 9px", cursor:"pointer", color:C.textMuted, display:"flex", position:"relative" }}>
-          <Bell size={14}/>
-          <span style={{ position:"absolute", top:7, right:7, width:6, height:6,
-            background:C.danger, borderRadius:"50%", border:"1.5px solid #fff" }}/>
-        </button>
-        <div style={{ width:1, height:22, background:C.border }}/>
-        <div style={{ display:"flex", alignItems:"center", gap:5, fontSize:11, color:C.textMuted }}>
-          <span style={{ width:6, height:6, borderRadius:"50%", background:C.success, display:"inline-block" }}/>
-          {t.toLocaleTimeString("en-IN",{ hour:"2-digit", minute:"2-digit" })}
-        </div>
-        <span style={{ background:C.accentBg, color:C.accent, fontSize:10, fontWeight:800,
-          padding:"3px 10px", borderRadius:20, letterSpacing:"0.06em", textTransform:"uppercase" }}>
-          {role}
-        </span>
-        <div style={{ width:1, height:22, background:C.border }}/>
-        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-          <div style={{ textAlign:"right" }}>
-            <div style={{ fontSize:12, fontWeight:600, color:C.text }}>{user?.name || 'User'}</div>
-            <div style={{ fontSize:10, color:C.textMuted }}>{user?.email || ''}</div>
-          </div>
-          <button 
-            onClick={onLogout}
-            style={{ 
-              background:C.danger, 
-              border:"none", 
-              borderRadius:8,
-              padding:"8px 12px", 
-              cursor:"pointer", 
-              color:"#fff",
-              display:"flex",
-              alignItems:"center",
-              gap:6,
-              fontSize:12,
-              fontWeight:600
-            }}
-            title="Logout"
-          >
-            <LogOut size={14}/>
-            Logout
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+/* ═══════════════════ DASHBOARD ═══════════════════ */
+function Dashboard({ clients = [], clusters = [], riders = [], pickups = [] }) {
+  const stats = useMemo(() => {
+    const activeClients   = clients.filter(c => c.status === "active").length;
+    const activeRiders    = riders.filter(r => r.status === "active").length;
+    const completedPickups = pickups.filter(p => p.status === "completed").length;
+    const onTimeDeliveries = pickups.filter(p => p.status === "completed" && p.delay === 0).length;
+    const onTimeRate = completedPickups > 0 ? Math.round((onTimeDeliveries / completedPickups) * 100) : 0;
+    return [
+      { label:"Active Clients",  value:activeClients,    icon:Building2,  color:"#F59E0B", trend:"+12%" },
+      { label:"Active Riders",   value:activeRiders,     icon:Users,      color:"#06B6D4", trend:"+8%"  },
+      { label:"Today's Pickups", value:completedPickups, icon:Package,    color:"#10B981", trend:"+15%" },
+      { label:"On-Time Rate",    value:`${onTimeRate}%`, icon:Clock,      color:"#6366F1", trend:"+3%"  },
+    ];
+  }, [clients, riders, pickups]);
 
-/* ═══════════════════ DASHBOARD (same as before) ═══════════════════ */
-function Dashboard({ clients, clusters, riders, pickups }) {
-  const total   = Object.keys(pickups).length;
-  const done    = Object.values(pickups).filter(p=>p.status==="completed").length;
-  const packets = Object.values(pickups).reduce((s,p)=>s+(p.packets||0),0);
-  const rate    = total ? Math.round(done/total*100) : 0;
+  const chartData = [
+    { name:"Mon", SDD:65, AIR:28, NDD:45 },
+    { name:"Tue", SDD:78, AIR:35, NDD:52 },
+    { name:"Wed", SDD:85, AIR:42, NDD:48 },
+    { name:"Thu", SDD:72, AIR:38, NDD:55 },
+    { name:"Fri", SDD:90, AIR:45, NDD:60 },
+    { name:"Sat", SDD:68, AIR:32, NDD:42 },
+    { name:"Sun", SDD:55, AIR:25, NDD:35 },
+  ];
 
-  const modelCounts = Object.values(MODELS).reduce((acc,m) => {
-    acc[m.key] = clusters.filter(c=>c.model===m.key).length;
-    return acc;
-  }, {});
-
-  const pieData = [
-    { name:"Completed",   value:done,         color:C.success },
-    { name:"In Progress", value:Object.values(pickups).filter(p=>p.status==="in-progress").length, color:C.warning },
-    { name:"Pending",     value:total-done,   color:C.danger  },
+  const typeData = [
+    { name:"SDD", value:513, color:MODELS.SDD.color },
+    { name:"AIR", value:245, color:MODELS.AIR.color },
+    { name:"NDD", value:337, color:MODELS.NDD.color },
   ];
 
   return (
-    <div style={{ padding:"22px 24px", overflowY:"auto", flex:1 }}>
-      {/* Model Summary Strip */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginBottom:18 }}>
-        {Object.values(MODELS).map(m => {
-          const mClusters = clusters.filter(c=>c.model===m.key);
-          const mClients  = [...new Set(mClusters.flatMap(c=>c.clientIds))].length;
-          return (
-            <div key={m.key} style={{ background:m.bg, border:`1px solid ${m.border}`,
-              borderRadius:10, padding:"12px 16px", display:"flex", alignItems:"center", gap:14 }}>
-              <span style={{ fontSize:26 }}>{m.icon}</span>
-              <div style={{ flex:1 }}>
-                <div style={{ fontSize:12, fontWeight:800, color:m.text, fontFamily:"Syne,sans-serif" }}>{m.short} — {m.label}</div>
-                <div style={{ fontSize:10, color:m.text, opacity:0.7, marginTop:1 }}>{m.desc}</div>
+    <div className="space-y-6">
+      {/* Stat Cards */}
+      <div className="grid grid-cols-4 gap-6">
+        {stats.map((stat, i) => (
+          <div key={i} className="bg-white rounded-xl p-6 border border-gray-200">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor:`${stat.color}20` }}>
+                <stat.icon className="w-6 h-6" style={{ color:stat.color }} />
               </div>
-              <div style={{ textAlign:"right" }}>
-                <div style={{ fontSize:22, fontWeight:800, color:m.text, fontFamily:"Syne,sans-serif", lineHeight:1 }}>{mClusters.length}</div>
-                <div style={{ fontSize:9, color:m.text, opacity:0.6 }}>clusters · {mClients} clients</div>
-              </div>
+              <span className="text-sm font-medium text-green-600">{stat.trend}</span>
             </div>
-          );
-        })}
-      </div>
-
-      {/* KPI Row */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:18 }}>
-        <KpiCard icon={Package}       label="Total Pickups"    value={total}     sub={`${done} completed today`}    color={C.info}    delta="+3 vs yesterday"/>
-        <KpiCard icon={Activity}      label="Completion Rate"  value={`${rate}%`} sub="Across all models"           color={C.success} delta="+4%"/>
-        <KpiCard icon={Truck}         label="Packets Picked"   value={packets}   sub="All active clusters"          color={C.accent}  />
-        <KpiCard icon={AlertTriangle} label="Pending Stops"    value={total-done} sub={`${riders.filter(r=>clusters.some(c=>c.riderId===r.id)).length} riders active`} color={C.danger} />
+            <div className="text-3xl font-bold text-gray-900 mb-1">{stat.value}</div>
+            <div className="text-sm text-gray-500">{stat.label}</div>
+          </div>
+        ))}
       </div>
 
       {/* Charts */}
-      <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr", gap:14, marginBottom:14 }}>
-        <CardWrap>
-          <SH action={<Btn variant="secondary" size="sm" icon={Download}>Export</Btn>}>
-            Weekly Pickup Volume — by Model
-          </SH>
-          <ResponsiveContainer width="100%" height={160}>
-            <BarChart data={TREND} barSize={11} barGap={3}>
-              <CartesianGrid strokeDasharray="3 3" stroke={C.border}/>
-              <XAxis dataKey="day" tick={{ fontSize:10, fill:C.textMuted }} axisLine={false} tickLine={false}/>
-              <YAxis tick={{ fontSize:10, fill:C.textMuted }} axisLine={false} tickLine={false}/>
-              <Tooltip contentStyle={{ borderRadius:8, border:`1px solid ${C.border}`, fontSize:11 }}/>
-              <Legend wrapperStyle={{ fontSize:10 }}/>
-              <Bar dataKey="SDD" fill={MODELS.SDD.color} radius={[3,3,0,0]} name="SDD"/>
-              <Bar dataKey="AIR" fill={MODELS.AIR.color} radius={[3,3,0,0]} name="AIR"/>
-              <Bar dataKey="NDD" fill={MODELS.NDD.color} radius={[3,3,0,0]} name="NDD"/>
-            </BarChart>
+      <div className="grid grid-cols-3 gap-6">
+        <div className="col-span-2 bg-white rounded-xl p-6 border border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Weekly Pickup Trends</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <AreaChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="name" stroke="#9CA3AF" fontSize={12} />
+              <YAxis stroke="#9CA3AF" fontSize={12} />
+              <Tooltip contentStyle={{ backgroundColor:"#1F2937", border:"none", borderRadius:"8px", color:"#fff" }} />
+              <Legend />
+              <Area type="monotone" dataKey="SDD" stackId="1" stroke={MODELS.SDD.color} fill={MODELS.SDD.color} fillOpacity={0.6} />
+              <Area type="monotone" dataKey="AIR" stackId="1" stroke={MODELS.AIR.color} fill={MODELS.AIR.color} fillOpacity={0.6} />
+              <Area type="monotone" dataKey="NDD" stackId="1" stroke={MODELS.NDD.color} fill={MODELS.NDD.color} fillOpacity={0.6} />
+            </AreaChart>
           </ResponsiveContainer>
-        </CardWrap>
+        </div>
 
-        <CardWrap>
-          <div style={{ fontFamily:"Syne,sans-serif", fontWeight:700, fontSize:14, color:C.text, marginBottom:3 }}>Status Split</div>
-          <div style={{ fontSize:11, color:C.textMuted, marginBottom:8 }}>Today · All models</div>
-          <ResponsiveContainer width="100%" height={110}>
+        <div className="bg-white rounded-xl p-6 border border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Pickup Distribution</h3>
+          <ResponsiveContainer width="100%" height={300}>
             <PieChart>
-              <Pie data={pieData} cx="50%" cy="50%" innerRadius={32} outerRadius={50} paddingAngle={4} dataKey="value">
-                {pieData.map((e,i) => <Cell key={i} fill={e.color}/>)}
+              <Pie data={typeData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value" label>
+                {typeData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
               </Pie>
-              <Tooltip contentStyle={{ borderRadius:8, border:`1px solid ${C.border}`, fontSize:11 }}/>
+              <Tooltip />
             </PieChart>
           </ResponsiveContainer>
-          <div style={{ display:"flex", flexDirection:"column", gap:6, marginTop:4 }}>
-            {pieData.map(d => (
-              <div key={d.name} style={{ display:"flex", alignItems:"center", gap:8 }}>
-                <div style={{ width:7, height:7, borderRadius:"50%", background:d.color }}/>
-                <span style={{ fontSize:11, color:C.textMuted, flex:1 }}>{d.name}</span>
-                <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:14, fontWeight:700, color:C.text }}>{d.value}</span>
-              </div>
-            ))}
-          </div>
-        </CardWrap>
+        </div>
       </div>
 
-      {/* Rider table */}
-      <CardWrap noPad>
-        <div style={{ padding:"14px 20px", borderBottom:`1px solid ${C.border}`,
-          display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-          <div style={{ fontFamily:"Syne,sans-serif", fontWeight:700, fontSize:14, color:C.text }}>Live Rider Activity</div>
-          <span style={{ fontSize:10, color:C.success, fontWeight:600, display:"flex", alignItems:"center", gap:5 }}>
-            <span style={{ width:6, height:6, borderRadius:"50%", background:C.success, display:"inline-block" }}/> Live
-          </span>
+      {/* Recent Pickups Table */}
+      <div className="bg-white rounded-xl border border-gray-200">
+        <div className="p-6 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900">Recent Pickups</h3>
         </div>
-        <div style={{ maxHeight:220, overflowY:"auto" }}>
-          {riders.map(rider => {
-            const status = getRiderStatus(rider.id, clusters, pickups);
-            const cl = clusters.find(c=>c.riderId===rider.id);
-            const cids = cl?.clientIds||[];
-            const rDone = cids.filter(cid=>pickups[`${rider.id}-${cid}`]?.status==="completed").length;
-            const rPkts = cids.reduce((s,cid)=>s+(pickups[`${rider.id}-${cid}`]?.packets||0),0);
-            return (
-              <div key={rider.id} style={{ padding:"10px 20px", borderBottom:`1px solid ${C.border}`,
-                display:"flex", alignItems:"center", gap:12 }}>
-                <Av name={rider.name} size={32} bg={cl ? MODELS[cl.model]?.color||"#1E3A5F" : "#94A3B8"}/>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:13, fontWeight:600, color:C.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{rider.name}</div>
-                  <div style={{ fontSize:10, color:C.textMuted, display:"flex", alignItems:"center", gap:6 }}>
-                    {rider.code}
-                    {cl && <><span>·</span><ModelBadge model={cl.model} size="sm"/><span>·</span>{cl.name}</>}
-                  </div>
-                </div>
-                <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:2 }}>
-                  <StatusPill status={status}/>
-                  {cl && <span style={{ fontSize:9, color:C.textMuted }}>{rDone}/{cids.length} stops</span>}
-                </div>
-              </div>
-            );
-          })}
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rider</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Packages</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {pickups.slice(0, 5).map(pickup => (
+                <tr key={pickup.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{pickup.clientName}</td>
+                  <td className="px-6 py-4 text-sm text-gray-600">{pickup.riderName}</td>
+                  <td className="px-6 py-4">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor:MODELS[pickup.type].bg, color:MODELS[pickup.type].text }}>
+                      {MODELS[pickup.type].icon} {pickup.type}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      pickup.status === "completed"   ? "bg-green-100 text-green-800"  :
+                      pickup.status === "in-progress" ? "bg-blue-100 text-blue-800"   :
+                      pickup.status === "delayed"     ? "bg-red-100 text-red-800"     :
+                                                        "bg-gray-100 text-gray-800"
+                    }`}>
+                      {pickup.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-600">{pickup.completedTime || pickup.scheduledTime}</td>
+                  <td className="px-6 py-4 text-sm text-gray-600">{pickup.packages}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      </CardWrap>
+      </div>
     </div>
   );
 }
 
-/* ═══════════════════ CLIENT MASTER (unchanged from v2) ═══════════════════ */
+/* ═══════════════════ CLIENT MASTER ═══════════════════ */
 function ClientMaster({ clients, setClients, clusters }) {
-  // Defensive checks
-  if (!clients || !Array.isArray(clients)) {
-    return (
-      <div style={{ padding:24, textAlign:"center" }}>
-        <div style={{ fontSize:18, fontWeight:700, marginBottom:8, color:"#F04438" }}>
-          Error Loading Client Master
+  const [search, setSearch]               = useState("");
+  const [filterCategory, setFilterCategory] = useState("all");
+  const [filterStatus, setFilterStatus]   = useState("all");
+
+  const filtered = clients.filter(c => {
+    const matchSearch   = c.name.toLowerCase().includes(search.toLowerCase()) || c.address.toLowerCase().includes(search.toLowerCase());
+    const matchCategory = filterCategory === "all" || c.category === filterCategory;
+    const matchStatus   = filterStatus   === "all" || c.status   === filterStatus;
+    return matchSearch && matchCategory && matchStatus;
+  });
+
+  const handleDelete = (id) => {
+    if (confirm("Are you sure you want to delete this client?")) {
+      setClients(clients.filter(c => c.id !== id));
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Client Master</h2>
+          <p className="text-gray-500">Manage pickup locations and client details</p>
         </div>
-        <div style={{ fontSize:14, color:"#667085" }}>
-          Client data is not available. Please refresh the page.
-        </div>
-        <button 
-          onClick={() => window.location.reload()}
-          style={{
-            marginTop:16,
-            padding:"10px 20px",
-            background:"#F59E0B",
-            color:"#fff",
-            border:"none",
-            borderRadius:8,
-            cursor:"pointer",
-            fontWeight:600
-          }}
-        >
-          Refresh Page
+        <button className="flex items-center gap-2 px-4 py-2 bg-amber-400 text-gray-900 rounded-lg hover:bg-amber-500 font-medium">
+          <Plus className="w-5 h-5" /> Add Client
         </button>
       </div>
-    );
-  }
 
-  const [q, setQ]           = useState("");
-  const [mFilter, setMFilter] = useState("ALL");
-  const [showAdd, setShowAdd] = useState(false);
-  const [editClient, setEditClient] = useState(null);
-  const blankForm = () => ({
-    name:"", address:"", lat:"", lng:"", spoc:"", contact:"",
-    models:{
-      SDD:{ enabled:false, cutoff:"" },
-      AIR:{ enabled:false, cutoff:"" },
-      NDD:{ enabled:false, cutoff:"" },
-    }
-  });
-  const [form, setForm] = useState(blankForm());
-
-  const ff = k => v => setForm(p=>({...p,[k]:v}));
-  const setModelEnabled = (m, val) => setForm(p=>({ ...p, models:{ ...p.models, [m]:{ ...p.models[m], enabled:val } } }));
-  const setModelCutoff  = (m, val) => setForm(p=>({ ...p, models:{ ...p.models, [m]:{ ...p.models[m], cutoff:val } } }));
-
-  const filtered = useMemo(() => clients.filter(c => {
-    if (!c || !c.name) return false;
-    const matchQ = (c.name || "").toLowerCase().includes(q.toLowerCase()) ||
-                   (c.address || "").toLowerCase().includes(q.toLowerCase()) ||
-                   (c.spoc || "").toLowerCase().includes(q.toLowerCase());
-    const matchM = mFilter === "ALL" || (c.models && c.models[mFilter]?.enabled);
-    return matchQ && matchM;
-  }), [clients, q, mFilter]);
-
-  const getCluster = (cid, model) => (clusters || []).find(cl=>cl.model===model && (cl.clientIds || []).includes(cid));
-
-  const handleSave = async () => {
-    if (!form.name||!form.address) return;
-    const clientData = {...form, lat:parseFloat(form.lat), lng:parseFloat(form.lng)};
-    if (editClient) {
-      // Update
-      if (supabase) {
-        await supabase.from('clients').update(clientData).eq('id', editClient);
-      }
-      setClients(p=>p.map(c=>c.id===editClient?{...clientData,id:editClient}:c));
-      setEditClient(null);
-    } else {
-      // Create
-      const newId = `C${Date.now()}`;
-      if (supabase) {
-        await supabase.from('clients').insert({...clientData, id:newId});
-      }
-      setClients(p=>[...p,{...clientData,id:newId}]);
-    }
-    setForm(blankForm()); setShowAdd(false);
-  };
-
-  const handleEdit = (c) => {
-    setForm({ name:c.name, address:c.address, lat:c.lat.toString(), lng:c.lng.toString(),
-      spoc:c.spoc, contact:c.contact, models:JSON.parse(JSON.stringify(c.models)) });
-    setEditClient(c.id); setShowAdd(true);
-  };
-
-  const mCounts = { ALL:clients.length, ...Object.keys(MODELS).reduce((a,m)=>({...a,[m]:clients.filter(c=>c.models[m]?.enabled).length}),{}) };
-
-  const cols = [
-    { key:"name", label:"Client / Address", render:r=>(
-      <div>
-        <div style={{ fontWeight:600, fontSize:13, color:C.text, marginBottom:2 }}>{r.name}</div>
-        <div style={{ fontSize:11, color:C.textMuted }}>📍 {r.address}</div>
-      </div>
-    )},
-    { key:"models", label:"Active Models", render:r=>(
-      <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
-        {Object.entries(r.models).filter(([,v])=>v.enabled).map(([m])=>(
-          <ModelBadge key={m} model={m} size="sm"/>
-        ))}
-        {!Object.values(r.models).some(v=>v.enabled) && <span style={{ color:C.textMuted, fontSize:11 }}>None</span>}
-      </div>
-    )},
-    { key:"cutoffs", label:"Cutoff Windows", render:r=>(
-      <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
-        {Object.entries(r.models).filter(([,v])=>v.enabled&&v.cutoff).map(([m,v])=>(
-          <div key={m} style={{ display:"flex", alignItems:"center", gap:6 }}>
-            <span style={{ fontSize:9, background:MODELS[m].bg, color:MODELS[m].text,
-              padding:"1px 5px", borderRadius:4, fontWeight:700 }}>{m}</span>
-            <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:10, color:C.textSub }}>{v.cutoff}</span>
+      {/* Filters */}
+      <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="flex gap-4">
+          <div className="flex-1 relative">
+            <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input type="text" placeholder="Search clients..." value={search} onChange={e => setSearch(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-transparent" />
           </div>
-        ))}
-      </div>
-    )},
-    { key:"spoc", label:"SPOC", render:r=>(
-      <div>
-        <div style={{ fontSize:12, color:C.text }}>{r.spoc}</div>
-        <a href={`tel:${r.contact}`} style={{ fontSize:10, color:C.info, fontFamily:"'JetBrains Mono',monospace" }}>{r.contact}</a>
-      </div>
-    )},
-    { key:"clusters", label:"Clusters (SDD·AIR·NDD)", render:r=>(
-      <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
-        {Object.keys(MODELS).map(m=>{
-          const cl = getCluster(r.id, m);
-          return r.models[m]?.enabled ? (
-            <div key={m} style={{ display:"flex", alignItems:"center", gap:5, fontSize:10 }}>
-              <span style={{ fontSize:8, fontWeight:800, color:MODELS[m].text }}>{m}</span>
-              {cl
-                ? <span style={{ color:C.info, fontWeight:600 }}>{cl.name}</span>
-                : <span style={{ color:C.textMuted }}>Unassigned</span>}
-            </div>
-          ) : null;
-        })}
-      </div>
-    )},
-  ];
-
-  return (
-    <div style={{ padding:"22px 24px", overflowY:"auto", flex:1 }}>
-      {/* Filter strip */}
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-        <div style={{ display:"flex", gap:6, alignItems:"center", flexWrap:"wrap" }}>
-          {["ALL",...Object.keys(MODELS)].map(m => (
-            <button key={m} onClick={()=>setMFilter(m)} className="tab-h"
-              style={{ padding:"5px 14px", borderRadius:20, border:`1px solid ${mFilter===m?(MODELS[m]?.border||C.accent):C.border}`,
-                background: mFilter===m ? (MODELS[m]?.bg||C.accentBg) : "#fff",
-                color: mFilter===m ? (MODELS[m]?.text||C.accent) : C.textMuted,
-                fontSize:11, fontWeight:mFilter===m?700:500, cursor:"pointer",
-                fontFamily:"'Plus Jakarta Sans',sans-serif", display:"flex", alignItems:"center", gap:5 }}>
-              {MODELS[m] && <span style={{ fontSize:11 }}>{MODELS[m].icon}</span>}
-              {m === "ALL" ? "All Models" : MODELS[m].short}
-              <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:9, opacity:0.7 }}>({mCounts[m]})</span>
-            </button>
-          ))}
-        </div>
-        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-          <div style={{ position:"relative" }}>
-            <Search size={12} style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", color:C.textMuted }}/>
-            <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search clients, SPOC..."
-              style={{ paddingLeft:28, paddingRight:10, padding:"7px 10px 7px 28px",
-                border:`1px solid ${C.border}`, borderRadius:8, fontSize:12, outline:"none", width:220 }}/>
-          </div>
-          <Btn variant="secondary" size="md" icon={Download}>Export</Btn>
-          <Btn variant="primary" size="md" icon={Plus} onClick={()=>{ setForm(blankForm()); setEditClient(null); setShowAdd(true); }}>
-            Add Client
-          </Btn>
+          <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-transparent">
+            <option value="all">All Categories</option>
+            {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+          </select>
+          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-transparent">
+            <option value="all">All Status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
         </div>
       </div>
 
-      <div style={{ fontSize:11, color:C.textMuted, marginBottom:10 }}>
-        Showing {filtered.length} of {clients.length} clients
-        {mFilter!=="ALL" && <span> · Filtered by <ModelBadge model={mFilter} size="sm"/></span>}
-      </div>
-
-      <CardWrap noPad>
-        <Table columns={cols} rows={filtered}
-          actions={r=>[
-            <button key="e" onClick={()=>handleEdit(r)}
-              style={{ padding:"4px 10px", background:"#F9FAFB", color:C.textSub, border:`1px solid ${C.border}`,
-                borderRadius:6, fontSize:11, fontWeight:600, cursor:"pointer", display:"inline-flex", alignItems:"center", gap:4, fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
-              <Edit2 size={10}/> Edit
-            </button>,
-            <a key="m" href={`https://maps.google.com/?q=${r.lat},${r.lng}`} target="_blank" rel="noreferrer"
-              style={{ padding:"4px 10px", background:C.infoBg, color:C.info,
-                borderRadius:6, fontSize:11, fontWeight:600, display:"inline-flex", alignItems:"center", gap:4 }}>
-              <Navigation size={10}/> Maps
-            </a>,
-          ]}
-        />
-      </CardWrap>
-
-      {/* Add/Edit Modal */}
-      <Modal show={showAdd} onClose={()=>{ setShowAdd(false); setEditClient(null); }}
-        title={editClient ? "Edit Client" : "Add New Client"} width={620}>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 16px" }}>
-          <FF label="Client Name" required full><FI value={form.name} onChange={ff("name")} placeholder="e.g. Flipkart — Noida WH"/></FF>
-          <FF label="Full Address" required full><FI value={form.address} onChange={ff("address")} placeholder="Complete address with city"/></FF>
-          <FF label="Latitude"><FI value={form.lat} onChange={ff("lat")} placeholder="28.5714"/></FF>
-          <FF label="Longitude"><FI value={form.lng} onChange={ff("lng")} placeholder="77.3219"/></FF>
-          <FF label="SPOC Name"><FI value={form.spoc} onChange={ff("spoc")} placeholder="Contact person name"/></FF>
-          <FF label="SPOC Contact"><FI value={form.contact} onChange={ff("contact")} placeholder="10 digit mobile"/></FF>
-        </div>
-
-        {/* Model-wise cutoffs */}
-        <div style={{ marginTop:8, marginBottom:16 }}>
-          <div style={{ fontSize:11, fontWeight:700, color:C.textMuted, letterSpacing:"0.06em",
-            textTransform:"uppercase", marginBottom:10 }}>Pickup Model Configuration</div>
-          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-            {Object.values(MODELS).map(m => {
-              const en = form.models[m.key]?.enabled;
-              return (
-                <div key={m.key} style={{ border:`1.5px solid ${en?m.border:C.border}`,
-                  borderRadius:10, padding:"12px 14px", background:en?m.bg:"#FAFBFC",
-                  transition:"all 0.15s" }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:en?10:0 }}>
-                    <div style={{ width:30, height:30, borderRadius:8, background:en?m.color:"#E4E7EC",
-                      display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, transition:"background 0.15s" }}>
-                      <span style={{ fontSize:14 }}>{m.icon}</span>
-                    </div>
-                    <div style={{ flex:1 }}>
-                      <div style={{ fontSize:13, fontWeight:700, color:en?m.text:C.textMuted }}>{m.short} — {m.label}</div>
-                      <div style={{ fontSize:10, color:en?m.text:C.textMuted, opacity:0.7 }}>{m.desc}</div>
-                    </div>
-                    <button onClick={()=>setModelEnabled(m.key,!en)}
-                      style={{ width:38, height:22, borderRadius:11, border:"none", cursor:"pointer",
-                        background:en?m.color:"#D1D5DB", display:"flex", alignItems:"center",
-                        padding:"2px", transition:"all 0.2s", justifyContent:en?"flex-end":"flex-start" }}>
-                      <div style={{ width:18, height:18, borderRadius:"50%", background:"#fff",
-                        boxShadow:"0 1px 3px rgba(0,0,0,0.2)" }}/>
-                    </button>
-                  </div>
-                  {en && (
-                    <div style={{ display:"grid", gridTemplateColumns:"1fr", gap:6 }}>
-                      <FF label={`${m.short} Pickup Cutoff Window`} hint="e.g. 09:00–13:00">
-                        <FI value={form.models[m.key].cutoff} onChange={v=>setModelCutoff(m.key,v)} placeholder="HH:MM–HH:MM"/>
-                      </FF>
-                    </div>
-                  )}
+      {/* Client Cards */}
+      <div className="grid gap-4">
+        {filtered.map(client => (
+          <div key={client.id} className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-md transition-shadow">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  <h3 className="text-lg font-semibold text-gray-900">{client.name}</h3>
+                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${client.status === "active" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}`}>
+                    {client.status}
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor:MODELS[client.pickupType].bg, color:MODELS[client.pickupType].text }}>
+                    {MODELS[client.pickupType].icon} {client.pickupType}
+                  </span>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-
-        <div style={{ display:"flex", gap:10 }}>
-          <Btn variant="secondary" onClick={()=>{ setShowAdd(false); setEditClient(null); }} ex={{ flex:1 }}>Cancel</Btn>
-          <Btn variant="primary" onClick={handleSave} ex={{ flex:1 }}>{editClient?"Save Changes":"Add Client"}</Btn>
-        </div>
-      </Modal>
-    </div>
-  );
-}
-
-/* ═══════════════════ CLUSTER BOARD (unchanged from v2) ═══════════════════ */
-const CL_COLORS_BY_MODEL = { SDD:["#F59E0B","#D97706","#B45309"], AIR:["#06B6D4","#0891B2","#0E7490"], NDD:["#6366F1","#4F46E5","#4338CA"] };
-
-/* ═══════════════════ SIMPLE CLUSTER BOARD (CRASH-PROOF) ═══════════════════ */
-function ClusterBoard({ clients = [], clusters = [], setClusters, riders = [] }) {
-  // Defensive: ensure we have arrays
-  const safeClients = Array.isArray(clients) ? clients : [];
-  const safeClusters = Array.isArray(clusters) ? clusters : [];
-  const safeRiders = Array.isArray(riders) ? riders : [];
-
-  const [activeModel, setActiveModel] = useState("SDD");
-
-  // Safe filtering
-  const modelClusters = safeClusters.filter(c => c && c.model === activeModel);
-  
-  return (
-    <div style={{ padding: "22px 24px", overflowY: "auto", flex: 1 }}>
-      {/* Header */}
-      <div style={{ 
-        background: "#fff", 
-        border: "1px solid #E5E7EB", 
-        borderRadius: 12,
-        padding: "20px", 
-        marginBottom: 20 
-      }}>
-        <h2 style={{ 
-          fontSize: 24, 
-          fontWeight: 800, 
-          margin: 0, 
-          marginBottom: 8,
-          color: "#111827" 
-        }}>
-          Cluster Board
-        </h2>
-        <p style={{ 
-          fontSize: 14, 
-          color: "#6B7280", 
-          margin: 0 
-        }}>
-          Manage and view delivery clusters
-        </p>
-      </div>
-
-      {/* Model Tabs */}
-      <div style={{ 
-        display: "flex", 
-        gap: 12, 
-        marginBottom: 20,
-        background: "#fff",
-        padding: "16px",
-        borderRadius: 12,
-        border: "1px solid #E5E7EB"
-      }}>
-        {Object.keys(MODELS).map(modelKey => {
-          const model = MODELS[modelKey];
-          const count = safeClusters.filter(c => c && c.model === modelKey).length;
-          const isActive = activeModel === modelKey;
-          
-          return (
-            <button
-              key={modelKey}
-              onClick={() => setActiveModel(modelKey)}
-              style={{
-                padding: "10px 16px",
-                borderRadius: 8,
-                border: `2px solid ${isActive ? model.border : "#E5E7EB"}`,
-                background: isActive ? model.bg : "#fff",
-                color: isActive ? model.text : "#6B7280",
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                transition: "all 0.2s"
-              }}
-            >
-              <span style={{ fontSize: 16 }}>{model.icon}</span>
-              <span>{model.short}</span>
-              <span style={{ 
-                background: isActive ? "rgba(0,0,0,0.1)" : "#F3F4F6",
-                padding: "2px 8px",
-                borderRadius: 12,
-                fontSize: 12,
-                fontWeight: 700
-              }}>
-                {count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Stats */}
-      <div style={{ 
-        display: "grid", 
-        gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", 
-        gap: 12,
-        marginBottom: 20
-      }}>
-        <div style={{
-          background: "#fff",
-          padding: "16px",
-          borderRadius: 12,
-          border: "1px solid #E5E7EB"
-        }}>
-          <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 4, fontWeight: 600 }}>
-            Total Clusters
-          </div>
-          <div style={{ fontSize: 32, fontWeight: 800, color: "#111827" }}>
-            {modelClusters.length}
-          </div>
-        </div>
-        
-        <div style={{
-          background: "#fff",
-          padding: "16px",
-          borderRadius: 12,
-          border: "1px solid #E5E7EB"
-        }}>
-          <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 4, fontWeight: 600 }}>
-            Assigned Riders
-          </div>
-          <div style={{ fontSize: 32, fontWeight: 800, color: "#10B981" }}>
-            {modelClusters.filter(c => c && c.riderId).length}
-          </div>
-        </div>
-
-        <div style={{
-          background: "#fff",
-          padding: "16px",
-          borderRadius: 12,
-          border: "1px solid #E5E7EB"
-        }}>
-          <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 4, fontWeight: 600 }}>
-            Total Clients
-          </div>
-          <div style={{ fontSize: 32, fontWeight: 800, color: "#3B82F6" }}>
-            {safeClients.filter(c => c && c.models && c.models[activeModel]?.enabled).length}
-          </div>
-        </div>
-      </div>
-
-      {/* Clusters Grid */}
-      <div style={{ 
-        display: "grid", 
-        gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", 
-        gap: 16 
-      }}>
-        {modelClusters.length === 0 ? (
-          <div style={{
-            gridColumn: "1 / -1",
-            background: "#F9FAFB",
-            padding: 40,
-            borderRadius: 12,
-            textAlign: "center",
-            border: "2px dashed #E5E7EB"
-          }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>📦</div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: "#111827", marginBottom: 6 }}>
-              No {activeModel} Clusters
-            </div>
-            <div style={{ fontSize: 14, color: "#6B7280" }}>
-              Create a cluster to get started
-            </div>
-          </div>
-        ) : (
-          modelClusters.map(cluster => {
-            if (!cluster || !cluster.id) return null;
-            
-            // Safe data extraction
-            const clusterName = cluster.name || "Unnamed Cluster";
-            const clusterColor = cluster.color || "#6B7280";
-            const clientIds = Array.isArray(cluster.clientIds) ? cluster.clientIds : [];
-            const riderId = cluster.riderId;
-            
-            // Find clients safely
-            const clusterClients = clientIds
-              .map(id => safeClients.find(c => c && c.id === id))
-              .filter(Boolean);
-            
-            // Find rider safely
-            const rider = riderId ? safeRiders.find(r => r && r.id === riderId) : null;
-            
-            return (
-              <div
-                key={cluster.id}
-                style={{
-                  background: "#fff",
-                  borderRadius: 12,
-                  border: "1px solid #E5E7EB",
-                  overflow: "hidden",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
-                }}
-              >
-                {/* Header */}
-                <div style={{
-                  background: clusterColor,
-                  padding: "16px",
-                  color: "#fff"
-                }}>
-                  <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>
-                    {clusterName}
-                  </div>
-                  <div style={{ fontSize: 12, opacity: 0.8 }}>
-                    {clientIds.length} client{clientIds.length !== 1 ? 's' : ''} • {MODELS[activeModel]?.short || activeModel}
-                  </div>
+                <div className="grid grid-cols-4 gap-4 text-sm text-gray-600">
+                  <div><span className="text-gray-400">Address:</span> {client.address}</div>
+                  <div><span className="text-gray-400">Category:</span> {client.category}</div>
+                  <div><span className="text-gray-400">Cutoff:</span> {client.cutoffTime}</div>
+                  <div><span className="text-gray-400">Monthly:</span> {client.monthlyPickups}</div>
                 </div>
-
-                {/* Clients */}
-                <div style={{ padding: "16px", borderBottom: "1px solid #E5E7EB" }}>
-                  <div style={{ 
-                    fontSize: 11, 
-                    fontWeight: 700, 
-                    color: "#6B7280", 
-                    textTransform: "uppercase",
-                    letterSpacing: "0.5px",
-                    marginBottom: 10 
-                  }}>
-                    Clients
+                <div className="mt-3 flex items-center gap-4 text-sm">
+                  <div className="flex items-center gap-1">
+                    <Users className="w-4 h-4 text-gray-400" />
+                    <span className="text-gray-600">{client.riders.length} Riders</span>
                   </div>
-                  {clusterClients.length === 0 ? (
-                    <div style={{ fontSize: 12, color: "#9CA3AF", fontStyle: "italic" }}>
-                      No clients assigned
-                    </div>
-                  ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      {clusterClients.map(client => {
-                        if (!client) return null;
-                        const clientName = client.name || "Unknown Client";
-                        const cutoff = client.models && client.models[activeModel] 
-                          ? client.models[activeModel].cutoff 
-                          : "—";
-                        
-                        return (
-                          <div
-                            key={client.id}
-                            style={{
-                              background: "#F9FAFB",
-                              padding: "8px 12px",
-                              borderRadius: 6,
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "center"
-                            }}
-                          >
-                            <div style={{ fontSize: 12, fontWeight: 600, color: "#111827" }}>
-                              {clientName.split(" - ")[0]}
-                            </div>
-                            <div style={{ 
-                              fontSize: 10, 
-                              color: "#6B7280",
-                              fontFamily: "monospace",
-                              background: "#fff",
-                              padding: "3px 8px",
-                              borderRadius: 4,
-                              border: "1px solid #E5E7EB"
-                            }}>
-                              {cutoff}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                {/* Rider */}
-                <div style={{ padding: "16px" }}>
-                  <div style={{ 
-                    fontSize: 11, 
-                    fontWeight: 700, 
-                    color: "#6B7280", 
-                    textTransform: "uppercase",
-                    letterSpacing: "0.5px",
-                    marginBottom: 10 
-                  }}>
-                    Assigned Rider
+                  <div className="flex items-center gap-1">
+                    <Activity className="w-4 h-4 text-gray-400" />
+                    <span className="text-gray-600">{client.onTimeRate}% On-Time</span>
                   </div>
-                  {rider ? (
-                    <div style={{
-                      background: "#F9FAFB",
-                      padding: "12px",
-                      borderRadius: 8,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12
-                    }}>
-                      <div style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: "50%",
-                        background: clusterColor,
-                        color: "#fff",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 16,
-                        fontWeight: 700
-                      }}>
-                        {(rider.name || "?").charAt(0).toUpperCase()}
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>
-                          {rider.name || "Unknown"}
-                        </div>
-                        <div style={{ fontSize: 11, color: "#6B7280" }}>
-                          {rider.code || ""} • Shift {rider.shift || "?"} 
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{
-                      background: "#F9FAFB",
-                      padding: "12px",
-                      borderRadius: 8,
-                      border: "2px dashed #E5E7EB",
-                      textAlign: "center",
-                      color: "#9CA3AF",
-                      fontSize: 12,
-                      fontStyle: "italic"
-                    }}>
-                      No rider assigned
-                    </div>
-                  )}
                 </div>
               </div>
-            );
-          })
-        )}
+              <div className="flex gap-2">
+                <button className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg">
+                  <Edit2 className="w-5 h-5" />
+                </button>
+                <button onClick={() => handleDelete(client.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg">
+                  <Trash2 className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
-
-/* ═══════════════════ RIDER MANAGEMENT (same as v2) ═══════════════════ */
-function RiderMgmt({ riders, setRiders, clusters, setClusters }) {
-  const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm]       = useState({ name:"", code:"", phone:"", vehicle:"", shift:"A" });
-  const ff = k => v => setForm(p=>({...p,[k]:v}));
-
-  const handleAdd = async () => {
-    if (!form.name||!form.code) return;
-    const newId = `R${Date.now()}`;
-    if (supabase) {
-      await supabase.from('riders').insert({...form, id:newId});
-    }
-    setRiders(p=>[...p,{...form,id:newId}]);
-    setForm({ name:"", code:"", phone:"", vehicle:"", shift:"A" }); setShowAdd(false);
-  };
-
-  const getAssignments = riderId => clusters.filter(c=>c.riderId===riderId);
-
-  const cols = [
-    { key:"name", label:"Rider", render:r=>(
-      <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-        <Av name={r.name} size={34} bg="#1E3A5F"/>
-        <div>
-          <div style={{ fontWeight:600, fontSize:13, color:C.text }}>{r.name}</div>
-          <div style={{ fontSize:10, color:C.info, fontFamily:"'JetBrains Mono',monospace" }}>{r.code}</div>
-        </div>
-      </div>
-    )},
-    { key:"vehicle", label:"Vehicle", render:r=>(
-      <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:11,
-        background:"#F2F4F7", padding:"3px 9px", borderRadius:6, color:C.textSub }}>{r.vehicle}</span>
-    )},
-    { key:"shift", label:"Shift", render:r=>(
-      <span style={{ background:r.shift==="A"?C.infoBg:MODELS.NDD.bg, color:r.shift==="A"?C.info:MODELS.NDD.text,
-        fontSize:11, fontWeight:700, padding:"3px 10px", borderRadius:20 }}>
-        {r.shift==="A"?"☀️":"🌙"} Shift {r.shift}
-      </span>
-    )},
-    { key:"clusters", label:"Model Assignments", render:r=>{
-      const asgn = getAssignments(r.id);
-      return asgn.length ? (
-        <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
-          {asgn.map(cl=>(
-            <div key={cl.id} style={{ display:"flex", alignItems:"center", gap:4,
-              background:MODELS[cl.model].bg, border:`1px solid ${MODELS[cl.model].border}`,
-              borderRadius:6, padding:"2px 8px" }}>
-              <span style={{ fontSize:9 }}>{MODELS[cl.model].icon}</span>
-              <span style={{ fontSize:10, fontWeight:700, color:MODELS[cl.model].text }}>{cl.name}</span>
-            </div>
-          ))}
-        </div>
-      ) : <span style={{ color:C.textMuted, fontSize:11 }}>— Unassigned</span>;
-    }},
-    { key:"phone", label:"Contact", render:r=>(
-      <a href={`tel:${r.phone}`} style={{ color:C.info, fontSize:12, fontFamily:"'JetBrains Mono',monospace" }}>{r.phone}</a>
-    )},
-  ];
+/* ═══════════════════ CLUSTER BOARD ═══════════════════ */
+function ClusterBoard({ clients = [], clusters = [], setClusters, riders = [] }) {
+  const [selectedCluster, setSelectedCluster] = useState(null);
 
   return (
-    <div style={{ padding:"22px 24px", overflowY:"auto", flex:1 }}>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-        <div style={{ display:"flex", gap:12 }}>
-          {[
-            ["Total",riders.length,C.text],
-            ["Assigned",riders.filter(r=>clusters.some(c=>c.riderId===r.id)).length,C.success],
-            ["Shift A",riders.filter(r=>r.shift==="A").length,MODELS.SDD.text],
-            ["Shift B",riders.filter(r=>r.shift==="B").length,MODELS.NDD.text],
-          ].map(([l,v,color])=>(
-            <div key={l} style={{ display:"flex", alignItems:"center", gap:5 }}>
-              <span style={{ fontFamily:"Syne,sans-serif", fontSize:17, fontWeight:800, color }}>{v}</span>
-              <span style={{ fontSize:11, color:C.textMuted }}>{l}</span>
-            </div>
-          ))}
-        </div>
-        <div style={{ display:"flex", gap:8 }}>
-          <Btn variant="secondary" icon={Download}>Export</Btn>
-          <Btn variant="primary" icon={Plus} onClick={()=>setShowAdd(true)}>Add Rider</Btn>
-        </div>
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900">Cluster Board</h2>
+        <p className="text-gray-500">Manage rider clusters and assignments</p>
       </div>
 
-      <CardWrap noPad>
-        <Table columns={cols} rows={riders}
-          actions={r=>[
-            <button key="u" onClick={()=>setClusters(p=>p.map(cl=>({...cl,riderId:cl.riderId===r.id?null:cl.riderId})))}
-              style={{ padding:"4px 10px", background:C.dangerBg, color:C.danger, border:"none",
-                borderRadius:6, fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
-              Unassign All
-            </button>
-          ]}
-        />
-      </CardWrap>
-
-      <Modal show={showAdd} onClose={()=>setShowAdd(false)} title="Add New Rider">
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 16px" }}>
-          <FF label="Full Name" required><FI value={form.name} onChange={ff("name")} placeholder="Rider full name"/></FF>
-          <FF label="Rider Code" required><FI value={form.code} onChange={ff("code")} placeholder="e.g. PB-007"/></FF>
-          <FF label="Phone Number"><FI value={form.phone} onChange={ff("phone")} placeholder="10 digit mobile"/></FF>
-          <FF label="Vehicle Number"><FI value={form.vehicle} onChange={ff("vehicle")} placeholder="e.g. DL-1C-9999"/></FF>
-          <FF label="Shift Assignment" full>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-              {[["A","☀️ Shift A — 09:00 to 19:00","SDD / AIR"],["B","🌙 Shift B — 19:00 to 09:00","NDD"]].map(([s,l,note])=>(
-                <button key={s} onClick={()=>setForm(p=>({...p,shift:s}))}
-                  style={{ padding:"11px 14px", border:`2px solid ${form.shift===s?m_color(s):C.border}`,
-                    borderRadius:9, background:form.shift===s?m_bg(s):"#fff",
-                    fontWeight:600, cursor:"pointer", color:form.shift===s?m_text(s):C.textMuted,
-                    fontFamily:"'Plus Jakarta Sans',sans-serif", textAlign:"left" }}>
-                  <div style={{ fontSize:13 }}>{l}</div>
-                  <div style={{ fontSize:10, opacity:0.7, marginTop:2 }}>Best for: {note}</div>
-                </button>
-              ))}
+      <div className="grid grid-cols-3 gap-6">
+        {clusters.map(cluster => (
+          <div key={cluster.id}
+            className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow cursor-pointer"
+            onClick={() => setSelectedCluster(cluster)}>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">{cluster.name}</h3>
+                <p className="text-sm text-gray-500">{cluster.region}</p>
+              </div>
+              <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${cluster.currentLoad / cluster.capacity > 0.8 ? "bg-red-100" : "bg-green-100"}`}>
+                <GitFork className={`w-6 h-6 ${cluster.currentLoad / cluster.capacity > 0.8 ? "text-red-600" : "text-green-600"}`} />
+              </div>
             </div>
-          </FF>
-        </div>
-        <div style={{ display:"flex", gap:10, marginTop:10 }}>
-          <Btn variant="secondary" onClick={()=>setShowAdd(false)} ex={{ flex:1 }}>Cancel</Btn>
-          <Btn variant="primary" onClick={handleAdd} ex={{ flex:1 }}>Add Rider</Btn>
-        </div>
-      </Modal>
+
+            <div className="space-y-3">
+              <div>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-gray-600">Capacity</span>
+                  <span className="font-medium text-gray-900">{cluster.currentLoad}/{cluster.capacity}</span>
+                </div>
+                <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-green-500 to-amber-500 rounded-full"
+                    style={{ width:`${(cluster.currentLoad / cluster.capacity) * 100}%` }} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-3 border-t border-gray-200">
+                <div>
+                  <div className="text-xs text-gray-500">Clients</div>
+                  <div className="text-lg font-semibold text-gray-900">{cluster.clients.length}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-gray-500">Riders</div>
+                  <div className="text-lg font-semibold text-gray-900">{cluster.riders.length}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-gray-500">Efficiency</div>
+                  <div className="text-lg font-semibold text-green-600">{cluster.efficiency}%</div>
+                </div>
+                <div>
+                  <div className="text-xs text-gray-500">Avg Time</div>
+                  <div className="text-lg font-semibold text-gray-900">{cluster.avgDeliveryTime}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
-function m_color(s){ return s==="A"?MODELS.SDD.color:MODELS.NDD.color; }
-function m_bg(s)   { return s==="A"?MODELS.SDD.bg:MODELS.NDD.bg; }
-function m_text(s) { return s==="A"?MODELS.SDD.text:MODELS.NDD.text; }
 
-/* ═══════════════════ LIVE MAP WITH REAL GPS ═══════════════════ */
-/* ═══════════════════ LIVE TRACKING WITH MAP VIEW ═══════════════════ */
-/* ═══════════════════ LIVE TRACKING WITH GOOGLE MAPS ═══════════════════ */
-function LiveMap({ riders = [], clusters = [], pickups = [], riderLocations = {} }) {
-  const [sel, setSel] = useState(null);
-  const [modelFilter, setMF] = useState("ALL");
-  const [viewMode, setViewMode] = useState("grid");
-  const [mapReady, setMapReady] = useState(false);
+/* ═══════════════════ RIDER MANAGEMENT ═══════════════════ */
+function RiderManagement({ riders, setRiders }) {
+  const [search, setSearch]           = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
+
+  const filtered = riders.filter(r => {
+    const matchSearch = r.name.toLowerCase().includes(search.toLowerCase()) || r.riderId.toLowerCase().includes(search.toLowerCase());
+    const matchStatus = filterStatus === "all" || r.status === filterStatus;
+    return matchSearch && matchStatus;
+  });
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Rider Management</h2>
+          <p className="text-gray-500">Monitor and manage delivery riders</p>
+        </div>
+        <button className="flex items-center gap-2 px-4 py-2 bg-amber-400 text-gray-900 rounded-lg hover:bg-amber-500 font-medium">
+          <Plus className="w-5 h-5" /> Add Rider
+        </button>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="flex gap-4">
+          <div className="flex-1 relative">
+            <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input type="text" placeholder="Search riders..." value={search} onChange={e => setSearch(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-transparent" />
+          </div>
+          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-transparent">
+            <option value="all">All Status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-200">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rider</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cluster</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vehicle</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Active Orders</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Performance</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {filtered.map(rider => (
+                <tr key={rider.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-semibold">
+                        {rider.name.split(" ").map(n => n[0]).join("")}
+                      </div>
+                      <div>
+                        <div className="font-medium text-gray-900">{rider.name}</div>
+                        <div className="text-sm text-gray-500">{rider.phone}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-sm font-mono text-gray-900">{rider.riderId}</td>
+                  <td className="px-6 py-4 text-sm text-gray-600">{rider.assignedCluster}</td>
+                  <td className="px-6 py-4">
+                    <span className="inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      {rider.vehicle}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${rider.status === "active" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}`}>
+                      {rider.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-900">{rider.activeOrders}</td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-green-500 rounded-full" style={{ width:`${rider.onTimeRate}%` }} />
+                      </div>
+                      <span className="text-sm font-medium text-gray-900">{rider.onTimeRate}%</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <button className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg">
+                      <MoreHorizontal className="w-5 h-5" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════ LIVE MAP ═══════════════════ */
+function LiveMap({ riders = [], clients = [], pickups = [] }) {
   const mapRef = useRef(null);
-  const markersRef = useRef({});
-  const googleMapRef = useRef(null);
+  const [selectedRider, setSelectedRider] = useState(null);
+  const [mapLoaded, setMapLoaded] = useState(false);
 
-  const safeRiders = Array.isArray(riders) ? riders : [];
-  const safeClusters = Array.isArray(clusters) ? clusters : [];
-  const safePickups = Array.isArray(pickups) ? pickups : [];
-
-  // Load Google Maps script
   useEffect(() => {
-    if (window.google && window.google.maps) {
-      setMapReady(true);
-      return;
+    if (!window.google) {
+      const script = document.createElement('script');
+      // Replace YOUR_GOOGLE_MAPS_API_KEY with your actual key
+      script.src = `https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&libraries=places`;
+      script.async = true;
+      script.defer = true;
+      script.onload = () => setMapLoaded(true);
+      document.head.appendChild(script);
+    } else {
+      setMapLoaded(true);
     }
-
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyDok1OXs5VI7s0NF801-5XEYd3uOuWhX60&libraries=geometry,places`;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      setMapReady(true);
-    };
-    script.onerror = () => {
-      console.error('Failed to load Google Maps');
-    };
-    document.head.appendChild(script);
-
-    return () => {
-      if (document.head.contains(script)) {
-        document.head.removeChild(script);
-      }
-    };
   }, []);
 
-  // Initialize Google Map
   useEffect(() => {
-    if (viewMode !== "map" || !mapReady || googleMapRef.current) return;
-
-    try {
-      const map = new window.google.maps.Map(document.getElementById('google-map'), {
-        center: { lat: 28.6139, lng: 77.2090 },
+    if (mapLoaded && mapRef.current && window.google) {
+      const map = new window.google.maps.Map(mapRef.current, {
+        center: { lat:28.6139, lng:77.2090 },
         zoom: 11,
-        styles: [
-          {
-            featureType: "poi",
-            elementType: "labels",
-            stylers: [{ visibility: "off" }]
-          }
-        ],
-        mapTypeControl: true,
-        mapTypeControlOptions: {
-          style: window.google.maps.MapTypeControlStyle.HORIZONTAL_BAR,
-          position: window.google.maps.ControlPosition.TOP_RIGHT,
-        },
-        streetViewControl: true,
-        fullscreenControl: true,
+        styles: [{ featureType:"poi", elementType:"labels", stylers:[{ visibility:"off" }] }]
       });
-
-      googleMapRef.current = map;
-    } catch (error) {
-      console.error('Map init error:', error);
-    }
-
-    return () => {
-      googleMapRef.current = null;
-    };
-  }, [viewMode, mapReady]);
-
-  // Update markers
-  useEffect(() => {
-    if (viewMode !== "map" || !googleMapRef.current || !window.google) return;
-
-    try {
-      const visRiders = modelFilter === "ALL" ? safeRiders
-        : safeRiders.filter(r => safeClusters.some(c => c && c.riderId === r.id && c.model === modelFilter));
-
-      // Clear old markers
-      Object.values(markersRef.current).forEach(marker => {
-        if (marker && marker.setMap) marker.setMap(null);
-      });
-      markersRef.current = {};
-
-      const bounds = new window.google.maps.LatLngBounds();
-      let hasMarkers = false;
-
-      // Add new markers
-      visRiders.forEach(rider => {
-        if (!rider || !rider.id) return;
-        const loc = riderLocations[rider.id];
-        if (!loc || !loc.lat || !loc.lng) return;
-
-        const status = getRiderStatus(rider.id, safeClusters, safePickups);
-        const STATUS_COLORS = {
-          completed: "#12B76A",
-          "in-progress": "#F79009",
-          pending: "#F04438",
-          idle: "#98A2B3"
-        };
-        const color = STATUS_COLORS[status] || "#98A2B3";
-
-        const position = { lat: loc.lat, lng: loc.lng };
-
-        // Create custom marker with SVG
+      riders.filter(r => r.status === "active").forEach(rider => {
         const marker = new window.google.maps.Marker({
-          position: position,
-          map: googleMapRef.current,
-          title: rider.name || "Unknown",
-          icon: {
-            path: window.google.maps.SymbolPath.CIRCLE,
-            fillColor: color,
-            fillOpacity: 1,
-            strokeColor: '#fff',
-            strokeWeight: 3,
-            scale: 15
-          },
-          label: {
-            text: ((rider.code || "?").split("-")[1] || "?"),
-            color: '#fff',
-            fontSize: '12px',
-            fontWeight: 'bold'
-          }
+          position: rider.currentLocation,
+          map,
+          title: rider.name,
+          icon: { path:window.google.maps.SymbolPath.CIRCLE, scale:8, fillColor:"#F59E0B", fillOpacity:1, strokeColor:"#fff", strokeWeight:2 }
         });
-
-        marker.addListener('click', () => {
-          setSel(rider.id);
-        });
-
-        markersRef.current[rider.id] = marker;
-        bounds.extend(position);
-        hasMarkers = true;
+        marker.addListener("click", () => setSelectedRider(rider));
       });
-
-      // Fit bounds if we have markers
-      if (hasMarkers) {
-        googleMapRef.current.fitBounds(bounds);
-        
-        // Don't zoom in too much for single marker
-        const listener = window.google.maps.event.addListener(googleMapRef.current, "idle", () => {
-          if (googleMapRef.current.getZoom() > 15) {
-            googleMapRef.current.setZoom(15);
-          }
-          window.google.maps.event.removeListener(listener);
+      clients.forEach(client => {
+        new window.google.maps.Marker({
+          position: { lat:client.lat, lng:client.lng },
+          map,
+          title: client.name,
+          icon: { path:window.google.maps.SymbolPath.CIRCLE, scale:6, fillColor:MODELS[client.pickupType].color, fillOpacity:0.8, strokeColor:"#fff", strokeWeight:2 }
         });
-      }
-    } catch (error) {
-      console.error('Marker update error:', error);
+      });
     }
-  }, [safeRiders, safeClusters, riderLocations, modelFilter, safePickups, viewMode, mapReady]);
+  }, [mapLoaded, riders, clients]);
 
-  const visRiders = modelFilter === "ALL" ? safeRiders
-    : safeRiders.filter(r => safeClusters.some(c => c && c.riderId === r.id && c.model === modelFilter));
-
-  const selRider = sel ? safeRiders.find(r => r && r.id === sel) : null;
-  const selClusters = selRider ? safeClusters.filter(c => c && c.riderId === selRider.id) : [];
+  const activeRiders = riders.filter(r => r.status === "active");
 
   return (
-    <div style={{ padding: "22px 24px", flex: 1, overflow: "auto", display: "flex", flexDirection: "column", gap: 14 }}>
-      {/* Top Bar */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        {/* Model Filters */}
-        <div style={{ display: "flex", gap: 6 }}>
-          {["ALL", ...Object.keys(MODELS)].map(mk => {
-            const m = MODELS[mk];
-            return (
-              <button key={mk} onClick={() => setMF(mk)}
-                style={{
-                  padding: "5px 14px", borderRadius: 20, border: `1px solid ${modelFilter === mk ? (m?.border || C.accent) : C.border}`,
-                  background: modelFilter === mk ? (m?.bg || C.accentBg) : "#fff",
-                  color: modelFilter === mk ? (m?.text || C.accent) : C.textMuted,
-                  fontSize: 11, fontWeight: modelFilter === mk ? 700 : 500, cursor: "pointer",
-                  fontFamily: "'Plus Jakarta Sans',sans-serif", display: "flex", alignItems: "center", gap: 5
-                }}>
-                {m && <span style={{ fontSize: 11 }}>{m.icon}</span>}
-                {mk === "ALL" ? "All Models" : m?.short}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* View Toggle */}
-        <div style={{ display: "flex", gap: 6, marginLeft: "auto" }}>
-          <button
-            onClick={() => setViewMode("map")}
-            disabled={!mapReady}
-            style={{
-              padding: "6px 14px",
-              borderRadius: 8,
-              border: `1px solid ${viewMode === "map" ? C.accent : C.border}`,
-              background: viewMode === "map" ? C.accentBg : "#fff",
-              color: viewMode === "map" ? C.accent : C.textMuted,
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: mapReady ? "pointer" : "not-allowed",
-              opacity: mapReady ? 1 : 0.5,
-              display: "flex",
-              alignItems: "center",
-              gap: 6
-            }}
-          >
-            🗺️ Map
-            {!mapReady && <span style={{ fontSize: 10 }}>(Loading...)</span>}
-          </button>
-          <button
-            onClick={() => setViewMode("grid")}
-            style={{
-              padding: "6px 14px",
-              borderRadius: 8,
-              border: `1px solid ${viewMode === "grid" ? C.accent : C.border}`,
-              background: viewMode === "grid" ? C.accentBg : "#fff",
-              color: viewMode === "grid" ? C.accent : C.textMuted,
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 6
-            }}
-          >
-            📊 Grid
-          </button>
-        </div>
-
-        {/* Status Legend */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {Object.entries({ completed: "Completed", "in-progress": "In Progress", pending: "Pending", idle: "Idle" }).map(([s, l]) => {
-            const colors = { completed: "#12B76A", "in-progress": "#F79009", pending: "#F04438", idle: "#98A2B3" };
-            return (
-              <div key={s} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: C.textMuted }}>
-                <div style={{ width: 10, height: 10, borderRadius: "50%", background: colors[s], border: "2px solid #fff", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
-                {l}
-              </div>
-            );
-          })}
-        </div>
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900">Live Tracking</h2>
+        <p className="text-gray-500">Real-time rider locations and active deliveries</p>
       </div>
 
-      {/* GOOGLE MAPS VIEW */}
-      {viewMode === "map" && (
-        <div style={{ flex: 1, background: "#fff", borderRadius: 12, border: `1px solid ${C.border}`, position: "relative", minHeight: "600px", overflow: "hidden" }}>
-          {!mapReady ? (
-            <div style={{
-              position: "absolute",
-              inset: 0,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexDirection: "column",
-              gap: 16,
-              background: "#F9FAFB"
-            }}>
-              <div style={{
-                width: 48,
-                height: 48,
-                border: "4px solid #E5E7EB",
-                borderTop: "4px solid #F59E0B",
-                borderRadius: "50%",
-                animation: "spin 1s linear infinite"
-              }} />
-              <div style={{ fontSize: 14, color: "#6B7280", fontWeight: 600 }}>
-                Loading Google Maps...
+      <div className="grid grid-cols-4 gap-6">
+        <div className="col-span-3">
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden" style={{ height:"600px" }}>
+            {/* Placeholder shown until Google Maps API key is configured */}
+            {!mapLoaded && (
+              <div className="flex items-center justify-center h-full text-gray-400 flex-col gap-2">
+                <MapPin className="w-10 h-10" />
+                <p className="text-sm">Add your Google Maps API key in LiveMap to enable the map.</p>
               </div>
-              <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
-            </div>
-          ) : (
-            <>
-              <div id="google-map" style={{ width: "100%", height: "100%", borderRadius: 12 }}></div>
-
-              {/* Stats Overlay */}
-              <div style={{
-                position: "absolute",
-                top: 16,
-                left: 16,
-                background: "rgba(255,255,255,0.98)",
-                padding: "14px 18px",
-                borderRadius: 10,
-                boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
-                zIndex: 10,
-                border: "1px solid rgba(0,0,0,0.05)"
-              }}>
-                <div style={{ fontSize: 10, color: C.textMuted, fontWeight: 700, marginBottom: 6, letterSpacing: "0.5px", textTransform: "uppercase" }}>
-                  Active Riders
-                </div>
-                <div style={{ fontSize: 28, fontWeight: 800, color: C.text, lineHeight: 1 }}>
-                  {Object.keys(markersRef.current).length}
-                </div>
-                <div style={{ fontSize: 10, color: C.textMuted, marginTop: 4 }}>
-                  of {visRiders.length} total
-                </div>
-              </div>
-
-              {/* Google Maps Attribution */}
-              <div style={{
-                position: "absolute",
-                bottom: 8,
-                right: 8,
-                fontSize: 9,
-                color: "#666",
-                background: "rgba(255,255,255,0.8)",
-                padding: "2px 6px",
-                borderRadius: 4,
-                zIndex: 10
-              }}>
-                Powered by Google Maps
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* GRID VIEW */}
-      {viewMode === "grid" && (
-        <div style={{ flex: 1, background: "#fff", borderRadius: 12, border: `1px solid ${C.border}`, padding: 20, overflow: "auto" }}>
-          <div style={{
-            textAlign: "center",
-            padding: "30px 20px",
-            background: "#F9FAFB",
-            borderRadius: 8,
-            marginBottom: 20
-          }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>🗺️</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: C.text, marginBottom: 8 }}>
-              Live Rider Tracking
-            </div>
-            <div style={{ fontSize: 14, color: C.textMuted }}>
-              Showing {visRiders.length} riders {modelFilter !== "ALL" && `(${modelFilter} model)`}
-            </div>
+            )}
+            <div ref={mapRef} style={{ width:"100%", height:"100%" }} />
           </div>
+        </div>
 
-          {/* Rider Cards Grid */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
-            {visRiders.map(rider => {
-              if (!rider || !rider.id) return null;
-              const status = getRiderStatus(rider.id, safeClusters, safePickups);
-              const cl = safeClusters.find(c => c && c.riderId === rider.id);
-              const DOT_C = { completed: "#12B76A", "in-progress": "#F79009", pending: "#F04438", idle: "#98A2B3" };
-              const color = DOT_C[status] || "#98A2B3";
-              const loc = riderLocations[rider.id];
-
-              return (
-                <div
-                  key={rider.id}
-                  onClick={() => setSel(rider.id)}
-                  style={{
-                    background: sel === rider.id ? "#F9FAFB" : "#fff",
-                    border: `1px solid ${sel === rider.id ? C.accent : C.border}`,
-                    borderRadius: 10,
-                    padding: 14,
-                    cursor: "pointer",
-                    transition: "all 0.2s",
-                    boxShadow: sel === rider.id ? "0 4px 12px rgba(0,0,0,0.08)" : "0 1px 3px rgba(0,0,0,0.05)"
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                    <div style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: "50%",
-                      background: color,
-                      color: "#fff",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 13,
-                      fontWeight: 800,
-                      boxShadow: "0 2px 8px rgba(0,0,0,0.15)"
-                    }}>
-                      {((rider.code || "?").split("-")[1]) || "?"}
+        <div className="space-y-4">
+          <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <h3 className="font-semibold text-gray-900 mb-3">Active Riders ({activeRiders.length})</h3>
+            <div className="space-y-2 max-h-[550px] overflow-y-auto">
+              {activeRiders.map(rider => (
+                <div key={rider.id} onClick={() => setSelectedRider(rider)}
+                  className={`p-3 rounded-lg border cursor-pointer transition-all ${selectedRider?.id === rider.id ? "border-amber-400 bg-amber-50" : "border-gray-200 hover:border-amber-300"}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white text-xs font-semibold">
+                      {rider.name.split(" ").map(n => n[0]).join("")}
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>
-                        {rider.name || "Unknown"}
-                      </div>
-                      <div style={{ fontSize: 11, color: C.textMuted }}>
-                        {rider.code || "—"}
-                      </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm text-gray-900 truncate">{rider.name}</div>
+                      <div className="text-xs text-gray-500">{rider.riderId}</div>
                     </div>
                   </div>
-
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
-                    <span style={{
-                      fontSize: 10,
-                      padding: "3px 8px",
-                      borderRadius: 6,
-                      background: color + "20",
-                      color: color,
-                      fontWeight: 600,
-                      textTransform: "capitalize"
-                    }}>
-                      {status.replace("-", " ")}
-                    </span>
-                    {cl && MODELS[cl.model] && (
-                      <span style={{
-                        fontSize: 10,
-                        padding: "3px 8px",
-                        borderRadius: 6,
-                        background: MODELS[cl.model].bg,
-                        color: MODELS[cl.model].text,
-                        fontWeight: 600
-                      }}>
-                        {MODELS[cl.model].short}
-                      </span>
-                    )}
-                  </div>
-
-                  {loc && loc.timestamp && (
-                    <div style={{
-                      paddingTop: 8,
-                      borderTop: `1px solid ${C.border}`,
-                      fontSize: 10,
-                      color: C.textMuted,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 4
-                    }}>
-                      📍 Last seen: {new Date(loc.timestamp).toLocaleTimeString()}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-500">Active Orders</span>
+                      <span className="font-medium text-gray-900">{rider.activeOrders}</span>
                     </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {visRiders.length === 0 && (
-            <div style={{ textAlign: "center", padding: 40, color: C.textMuted, fontSize: 14 }}>
-              No riders found for this filter
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Selected Rider Details Panel */}
-      {selRider && (
-        <div style={{
-          position: "fixed",
-          top: 0,
-          right: 0,
-          width: 340,
-          height: "100vh",
-          background: "#fff",
-          borderLeft: `1px solid ${C.border}`,
-          padding: 20,
-          overflowY: "auto",
-          zIndex: 100,
-          boxShadow: "-4px 0 16px rgba(0,0,0,0.08)"
-        }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Rider Details</h3>
-            <button onClick={() => setSel(null)} style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              padding: 4,
-              color: C.textMuted,
-              fontSize: 20
-            }}>
-              ✕
-            </button>
-          </div>
-
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 6 }}>
-              {selRider.name || "Unknown"}
-            </div>
-            <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 4 }}>
-              {selRider.code || "—"} • {selRider.phone || "—"}
-            </div>
-            <div style={{ fontSize: 11, color: C.textMuted }}>
-              Shift {selRider.shift || "?"}
-            </div>
-          </div>
-
-          {selClusters.length > 0 && (
-            <>
-              <div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                Assigned Clusters ({selClusters.length})
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
-                {selClusters.map(c => {
-                  if (!c || !c.id) return null;
-                  return (
-                    <div key={c.id} style={{
-                      background: "#F9FAFB",
-                      padding: 12,
-                      borderRadius: 8,
-                      border: `1px solid ${C.border}`
-                    }}>
-                      <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>{c.name || "Unknown"}</div>
-                      <div style={{ color: C.textMuted, fontSize: 11, marginBottom: 6 }}>
-                        {MODELS[c.model]?.label || c.model} • {(c.clientIds || []).length} clients
-                      </div>
-                      {MODELS[c.model] && (
-                        <span style={{
-                          display: "inline-block",
-                          fontSize: 10,
-                          padding: "3px 8px",
-                          borderRadius: 6,
-                          background: MODELS[c.model].bg,
-                          color: MODELS[c.model].text,
-                          fontWeight: 600
-                        }}>
-                          {MODELS[c.model].short}
-                        </span>
-                      )}
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-500">Today</span>
+                      <span className="font-medium text-gray-900">{rider.todayOrders}</span>
                     </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
-
-          {selRider.phone && (
-            <button
-              onClick={() => window.open(`tel:${selRider.phone}`)}
-              style={{
-                width: "100%",
-                padding: "12px",
-                background: C.accent,
-                color: "#fff",
-                border: "none",
-                borderRadius: 8,
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8
-              }}
-            >
-              📞 Call {(selRider.name || "Rider").split(" ")[0]}
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-
-
-/* ═══════════════════ REPORTS (same as v2) ═══════════════════ */
-function Reports({ clients, clusters, riders, pickups }) {
-  const total   = Object.keys(pickups).length;
-  const done    = Object.values(pickups).filter(p=>p.status==="completed").length;
-  const packets = Object.values(pickups).reduce((s,p)=>s+(p.packets||0),0);
-
-  return (
-    <div style={{ padding:"22px 24px", overflowY:"auto", flex:1 }}>
-      <div style={{ display:"grid", gridTemplateColumns:"1.6fr 1fr", gap:14, marginBottom:14 }}>
-        <CardWrap>
-          <SH action={<Btn variant="secondary" size="sm" icon={Download}>Export CSV</Btn>}>
-            Weekly Volume — by Model
-          </SH>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={TREND} barSize={10} barGap={3}>
-              <CartesianGrid strokeDasharray="3 3" stroke={C.border}/>
-              <XAxis dataKey="day" tick={{ fontSize:10, fill:C.textMuted }} axisLine={false} tickLine={false}/>
-              <YAxis tick={{ fontSize:10, fill:C.textMuted }} axisLine={false} tickLine={false}/>
-              <Tooltip contentStyle={{ borderRadius:8, border:`1px solid ${C.border}`, fontSize:11 }}/>
-              <Legend wrapperStyle={{ fontSize:10 }}/>
-              <Bar dataKey="SDD" fill={MODELS.SDD.color} radius={[3,3,0,0]} name="SDD ☀️"/>
-              <Bar dataKey="AIR" fill={MODELS.AIR.color} radius={[3,3,0,0]} name="AIR ✈️"/>
-              <Bar dataKey="NDD" fill={MODELS.NDD.color} radius={[3,3,0,0]} name="NDD 🌙"/>
-            </BarChart>
-          </ResponsiveContainer>
-        </CardWrap>
-        <CardWrap>
-          <SH>Today's KPIs</SH>
-          {[
-            ["Pickups Assigned",total,C.info],["Completed",done,C.success],
-            ["Pending",total-done,C.danger],["Packets Picked",packets,C.accent],
-            ["Clusters Active",clusters.filter(c=>c.clientIds.length>0).length,MODELS.SDD.color],
-            ["Riders on Field",riders.filter(r=>clusters.some(c=>c.riderId===r.id)).length,MODELS.AIR.color],
-          ].map(([l,v,color])=>(
-            <div key={l} style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
-              padding:"8px 0", borderBottom:`1px solid ${C.border}` }}>
-              <span style={{ fontSize:12, color:C.textMuted }}>{l}</span>
-              <span style={{ fontFamily:"Syne,sans-serif", fontSize:16, fontWeight:800, color }}>{v}</span>
-            </div>
-          ))}
-        </CardWrap>
-      </div>
-
-      <CardWrap noPad>
-        <div style={{ padding:"14px 20px", borderBottom:`1px solid ${C.border}`,
-          display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-          <div style={{ fontFamily:"Syne,sans-serif", fontWeight:700, fontSize:14, color:C.text }}>Client Performance — All Models</div>
-          <Btn variant="secondary" size="sm" icon={Download}>Download</Btn>
-        </div>
-        <Table
-          columns={[
-            { key:"name", label:"Client", render:r=><span style={{ fontWeight:600 }}>{r.name}</span> },
-            { key:"models", label:"Models", render:r=>(
-              <div style={{ display:"flex", gap:3 }}>
-                {Object.entries(r.models).filter(([,v])=>v.enabled).map(([m])=><ModelBadge key={m} model={m} size="sm"/>)}
-              </div>
-            )},
-            { key:"cutoffs", label:"Cutoff Windows", render:r=>(
-              <div style={{ display:"flex", flexDirection:"column", gap:2 }}>
-                {Object.entries(r.models).filter(([,v])=>v.enabled&&v.cutoff).map(([m,v])=>(
-                  <div key={m} style={{ display:"flex", gap:6, alignItems:"center" }}>
-                    <span style={{ fontSize:8, background:MODELS[m].bg, color:MODELS[m].text,
-                      padding:"1px 5px", borderRadius:4, fontWeight:800 }}>{m}</span>
-                    <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:10 }}>{v.cutoff}</span>
                   </div>
-                ))}
-              </div>
-            )},
-            { key:"spoc", label:"SPOC" },
-          ]}
-          rows={clients}
-        />
-      </CardWrap>
-    </div>
-  );
-}
-
-/* ═══════════════════ USER ROLES (same as v2) ═══════════════════ */
-function UserRoles() {
-  const [users, setUsers] = useState(USERS_INIT);
-  const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ name:"", email:"", perms:[] });
-  const ALL_PERMS = ["clients","clusters","riders","status","analytics","reports"];
-  const togglePerm = p => setForm(f=>({...f,perms:f.perms.includes(p)?f.perms.filter(x=>x!==p):[...f.perms,p]}));
-  const handleAdd = () => {
-    if (!form.name||!form.email) return;
-    setUsers(p=>[...p,{...form,id:`U${Date.now()}`,role:"supervisor",active:true}]);
-    setForm({name:"",email:"",perms:[]}); setShowAdd(false);
-  };
-  return (
-    <div style={{ padding:"22px 24px", overflowY:"auto", flex:1 }}>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-        <span style={{ fontSize:12, color:C.textMuted }}>{users.length} supervisors · {users.filter(u=>u.active).length} active</span>
-        <Btn variant="primary" icon={Plus} onClick={()=>setShowAdd(true)}>Add Supervisor</Btn>
-      </div>
-      <CardWrap noPad>
-        <Table
-          columns={[
-            { key:"name", label:"User", render:r=>(
-              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                <Av name={r.name} size={34} bg="#1E3A5F"/>
-                <div>
-                  <div style={{ fontWeight:600, fontSize:13, color:C.text }}>{r.name}</div>
-                  <div style={{ fontSize:11, color:C.textMuted }}>{r.email}</div>
                 </div>
-              </div>
-            )},
-            { key:"role", label:"Role", render:()=>(
-              <span style={{ background:C.infoBg, color:C.info, fontSize:11, fontWeight:700, padding:"3px 10px", borderRadius:20 }}>SUPERVISOR</span>
-            )},
-            { key:"perms", label:"Module Access", render:r=>(
-              <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
-                {r.perms.map(p=>(
-                  <span key={p} style={{ background:C.purpleBg, color:C.purple, fontSize:9, fontWeight:700,
-                    padding:"2px 8px", borderRadius:10, textTransform:"uppercase", letterSpacing:"0.04em" }}>{p}</span>
-                ))}
-              </div>
-            )},
-            { key:"active", label:"Status", render:r=>(
-              <button onClick={()=>setUsers(p=>p.map(u=>u.id===r.id?{...u,active:!u.active}:u))}
-                style={{ padding:"4px 12px", borderRadius:20, border:"none",
-                  background:r.active?C.successBg:C.dangerBg, color:r.active?C.success:C.danger,
-                  cursor:"pointer", fontSize:11, fontWeight:700, fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
-                {r.active?"● Active":"● Inactive"}
-              </button>
-            )},
-          ]}
-          rows={users} actions={()=>[]}
-        />
-      </CardWrap>
-      <Modal show={showAdd} onClose={()=>setShowAdd(false)} title="Add Supervisor">
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 16px" }}>
-          <FF label="Full Name" required><FI value={form.name} onChange={v=>setForm(p=>({...p,name:v}))} placeholder="e.g. Rajesh Kumar"/></FF>
-          <FF label="Work Email" required><FI value={form.email} onChange={v=>setForm(p=>({...p,email:v}))} placeholder="user@shadowfax.in"/></FF>
-          <FF label="Module Permissions" full>
-            <div style={{ display:"flex", flexWrap:"wrap", gap:7 }}>
-              {ALL_PERMS.map(p=>(
-                <div key={p} onClick={()=>togglePerm(p)} className="chip-h"
-                  style={{ padding:"5px 14px", borderRadius:20, border:`1px solid ${form.perms.includes(p)?C.purple:C.border}`,
-                    background:form.perms.includes(p)?C.purpleBg:"#fff",
-                    color:form.perms.includes(p)?C.purple:C.textMuted,
-                    fontSize:12, fontWeight:600, textTransform:"capitalize" }}>{p}</div>
               ))}
             </div>
-          </FF>
+          </div>
         </div>
-        <div style={{ display:"flex", gap:10, marginTop:10 }}>
-          <Btn variant="secondary" onClick={()=>setShowAdd(false)} ex={{ flex:1 }}>Cancel</Btn>
-          <Btn variant="primary" onClick={handleAdd} ex={{ flex:1 }}>Add Supervisor</Btn>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════ REPORTS ═══════════════════ */
+function Reports() {
+  const performanceData = [
+    { date:"Jan 15", sdd:85, air:72, ndd:88 },
+    { date:"Jan 16", sdd:88, air:75, ndd:90 },
+    { date:"Jan 17", sdd:82, air:78, ndd:85 },
+    { date:"Jan 18", sdd:90, air:80, ndd:92 },
+    { date:"Jan 19", sdd:87, air:82, ndd:89 },
+    { date:"Jan 20", sdd:92, air:85, ndd:94 },
+    { date:"Jan 21", sdd:89, air:83, ndd:91 },
+  ];
+  const categoryData = [
+    { category:"Myntra PPMP",       pickups:450, onTime:96 },
+    { category:"Airport Feeder",    pickups:380, onTime:94 },
+    { category:"C1 Feeder (SDD)",   pickups:520, onTime:97 },
+    { category:"Large NDD Feeders", pickups:610, onTime:95 },
+    { category:"FM SDD Feeders",    pickups:490, onTime:93 },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900">Reports & Analytics</h2>
+        <p className="text-gray-500">Performance insights and trends</p>
+      </div>
+
+      <div className="grid grid-cols-4 gap-6">
+        {[
+          { label:"Total Pickups",    value:"2,450", trend:"↑ 12% vs last month"  },
+          { label:"Avg On-Time Rate", value:"95.2%", trend:"↑ 2.1% improvement"  },
+          { label:"Active Clients",   value:"342",   trend:"↑ 18 new clients"     },
+          { label:"Rider Efficiency", value:"93.8%", trend:"↑ 1.5% increase"      },
+        ].map((item, i) => (
+          <div key={i} className="bg-white rounded-xl p-6 border border-gray-200">
+            <div className="text-sm text-gray-500 mb-1">{item.label}</div>
+            <div className="text-3xl font-bold text-gray-900">{item.value}</div>
+            <div className="text-sm text-green-600 mt-1">{item.trend}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="bg-white rounded-xl p-6 border border-gray-200">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">On-Time Performance Trend</h3>
+        <ResponsiveContainer width="100%" height={300}>
+          <AreaChart data={performanceData}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <XAxis dataKey="date" stroke="#9CA3AF" fontSize={12} />
+            <YAxis stroke="#9CA3AF" fontSize={12} />
+            <Tooltip contentStyle={{ backgroundColor:"#1F2937", border:"none", borderRadius:"8px", color:"#fff" }} />
+            <Legend />
+            <Area type="monotone" dataKey="sdd" stroke={MODELS.SDD.color} fill={MODELS.SDD.color} fillOpacity={0.2} name="SDD" />
+            <Area type="monotone" dataKey="air" stroke={MODELS.AIR.color} fill={MODELS.AIR.color} fillOpacity={0.2} name="AIR" />
+            <Area type="monotone" dataKey="ndd" stroke={MODELS.NDD.color} fill={MODELS.NDD.color} fillOpacity={0.2} name="NDD" />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-200">
+        <div className="p-6 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900">Performance by Category</h3>
         </div>
-      </Modal>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Monthly Pickups</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">On-Time Rate</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Performance</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {categoryData.map((cat, i) => (
+                <tr key={i} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{cat.category}</td>
+                  <td className="px-6 py-4 text-sm text-gray-600">{cat.pickups}</td>
+                  <td className="px-6 py-4 text-sm font-medium text-green-600">{cat.onTime}%</td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden max-w-xs">
+                        <div className="h-full bg-green-500 rounded-full" style={{ width:`${cat.onTime}%` }} />
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════ MAIN APP ═══════════════════ */
+function MainApp({ user, onLogout }) {
+  const [activePage, setActivePage] = useState("dashboard");
+  const [clients, setClients]       = useState(CLIENTS_DATA);
+  const [clusters, setClusters]     = useState(CLUSTERS_DATA);
+  const [riders, setRiders]         = useState(RIDERS_DATA);
+  const [pickups, setPickups]       = useState(PICKUPS_DATA);
+
+  const visibleNav = NAV.filter(item => item.roles.includes(user.role));
+
+  // ✅ FIX: UserManagement now receives supabase prop
+  const content = {
+    dashboard: <Dashboard clients={clients} clusters={clusters} riders={riders} pickups={pickups} />,
+    import:    <FileImport supabase={supabase} onImportSuccess={(rows, type) => alert(`✅ Imported ${rows.length} ${type} assignments`)} />,
+    clients:   <ClientMaster clients={clients} setClients={setClients} clusters={clusters} />,
+    clusters:  <ClusterBoard clients={clients} clusters={clusters} setClusters={setClusters} riders={riders} />,
+    riders:    <RiderManagement riders={riders} setRiders={setRiders} />,
+    live:      <LiveMap riders={riders} clients={clients} pickups={pickups} />,
+    reports:   <Reports />,
+    users:     <UserManagement supabase={supabase} />,
+  };
+
+  // ✅ FIX: Derive initials and display name from the actual logged-in user
+  const userInitials = user.name ? user.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() : "?";
+  const userRole     = (user.role || "rider").toUpperCase();
+
+  return (
+    <div className="flex h-screen bg-gray-50">
+      {/* ── Sidebar ── */}
+      <div className="w-64 bg-[#0C111D] border-r border-gray-800 flex flex-col">
+        {/* Logo */}
+        <div className="p-6 border-b border-gray-800">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
+              <Package className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <div className="text-white font-bold text-lg">PickupOS</div>
+              <div className="text-gray-400 text-xs">SHADOWFAX · NCR · MIDDLE MILE OPS</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Nav */}
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+          <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-3">
+            OPERATIONS
+          </div>
+          {visibleNav.map(item => {
+            const Icon = item.icon;
+            const isActive = activePage === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActivePage(item.id)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  isActive
+                    ? "bg-gradient-to-r from-amber-400 to-orange-500 text-gray-900 shadow-lg"
+                    : "text-gray-400 hover:text-white hover:bg-gray-800"
+                }`}
+              >
+                <Icon className="w-5 h-5" />
+                <span>{item.label}</span>
+                {isActive && <ChevronRight className="w-4 h-4 ml-auto" />}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* ✅ FIX: User section now uses actual logged-in user data */}
+        <div className="p-4 border-t border-gray-800">
+          <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-800">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-semibold text-sm">
+              {userInitials}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium text-white truncate">{user.name}</div>
+              <div className="text-xs text-gray-400">{userRole}</div>
+            </div>
+            <button onClick={onLogout} className="p-2 text-gray-400 hover:text-red-400 hover:bg-gray-700 rounded-lg transition-colors">
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Main Content ── */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* ✅ FIX: Header now uses actual logged-in user data */}
+        <header className="bg-white border-b border-gray-200 px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-xs text-gray-500">Shadowfax · NCR · Middle Mile Ops</div>
+              <h1 className="text-2xl font-bold text-gray-900">{TITLES[activePage]}</h1>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input type="text" placeholder="Search anything..."
+                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-transparent w-80" />
+              </div>
+              <button className="p-2 text-gray-400 hover:text-gray-600 relative">
+                <Bell className="w-6 h-6" />
+                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+              </button>
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-100 text-amber-800 rounded-lg text-sm font-medium">
+                <Shield className="w-4 h-4" />
+                <span>{userRole}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">{user.name}</span>
+                {user.email && <div className="text-xs text-gray-500">{user.email}</div>}
+              </div>
+              <button onClick={onLogout} className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 font-medium text-sm flex items-center gap-2">
+                <LogOut className="w-4 h-4" /> Logout
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <main className="flex-1 overflow-auto p-8">
+          {content[activePage]}
+        </main>
+      </div>
     </div>
   );
 }
 
 /* ═══════════════════ ROOT ═══════════════════ */
-// ═══════════════════ AUTHENTICATION WRAPPER ═══════════════════
 export default function PickupOSDesktop() {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
 
-  // Check if user is logged in (from localStorage)
-  useEffect(() => {
-    const savedUser = localStorage.getItem('pickupos_user');
-    if (savedUser) {
-      try {
-        setUser(JSON.parse(savedUser));
-      } catch (e) {
-        localStorage.removeItem('pickupos_user');
-      }
-    }
-    setLoading(false);
-  }, []);
-
-  // Handle login
-  const handleLogin = (userData) => {
-    setUser(userData);
-    localStorage.setItem('pickupos_user', JSON.stringify(userData));
-  };
-
-  // Handle logout
-  const handleLogout = () => {
-    setUser(null);
-    localStorage.removeItem('pickupos_user');
-  };
-
-  // Show loading spinner
-  if (loading) {
-    return (
-      <div style={{ 
-        display: "flex", 
-        alignItems: "center", 
-        justifyContent: "center", 
-        height: "100vh",
-        background: "#F4F6FA",
-        fontFamily: "'Plus Jakarta Sans', sans-serif"
-      }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ 
-            fontSize: 18, 
-            fontWeight: 600, 
-            color: "#344054",
-            marginBottom: 8
-          }}>
-            Loading PickupOS...
-          </div>
-          <div style={{ fontSize: 14, color: "#667085" }}>
-            Please wait
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Show login page if not authenticated
   if (!user) {
-    return <LoginPage onLogin={handleLogin} supabase={supabase} />;
+    return <LoginPage onLogin={setUser} />;
   }
 
-  // Show main app if authenticated
-  return <MainApp user={user} onLogout={handleLogout} />;
-}
-
-// ═══════════════════ MAIN APP (After Authentication) ═══════════════════
-function MainApp({ user, onLogout }) {
-  const [view, setView]     = useState("dashboard");
-  // Set initial role based on user's actual role (riders can't change role)
-  const [role, setRole]     = useState(user?.role || "rider");
-  const [clients, setClients]   = useState(CLIENTS_INIT);
-  const [clusters, setClusters] = useState(CLUSTERS_INIT);
-  const [riders, setRiders]     = useState(RIDERS_INIT);
-  const [pickups]               = useState(PICKUPS_INIT);
-  const [riderLocations, setRiderLocations] = useState(RIDER_LOCATIONS_INIT);
-
-  // Auto-logout after 30 minutes of inactivity
-  useEffect(() => {
-    let inactivityTimer;
-    
-    const resetTimer = () => {
-      clearTimeout(inactivityTimer);
-      inactivityTimer = setTimeout(() => {
-        alert('You have been logged out due to inactivity');
-        onLogout();
-      }, 30 * 60 * 1000); // 30 minutes
-    };
-    
-    // Reset timer on user activity
-    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
-    events.forEach(event => {
-      document.addEventListener(event, resetTimer);
-    });
-    
-    resetTimer(); // Start the timer
-    
-    return () => {
-      clearTimeout(inactivityTimer);
-      events.forEach(event => {
-        document.removeEventListener(event, resetTimer);
-      });
-    };
-  }, [onLogout]);
-
-  // Ensure role stays valid for user's permission level
-  useEffect(() => {
-    const userRole = user?.role || "rider";
-    // If user is rider, force role to rider
-    if (userRole === "rider" && role !== "rider") {
-      setRole("rider");
-    }
-    // If user is supervisor, can't view as admin
-    if (userRole === "supervisor" && role === "admin") {
-      setRole("supervisor");
-    }
-  }, [user, role]);
-
-  // Load Leaflet script
-  useEffect(() => {
-    if (window.L) return;
-    const script = document.createElement('script');
-    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-    script.async = true;
-    document.head.appendChild(script);
-  }, []);
-
-  // Real-time location subscription (activate after Supabase setup)
-  useEffect(() => {
-    if (!supabase) return;
-    const unsubscribe = subscribeToRiderLocations((newLoc) => {
-      setRiderLocations(prev => ({ ...prev, [newLoc.rider_id]: newLoc }));
-    });
-    return unsubscribe;
-  }, []);
-
-  // Load data from Supabase on mount (activate after setup)
-  useEffect(() => {
-    if (!supabase) return;
-    Promise.all([
-      fetchClients().then(setClients),
-      fetchClusters().then(setClusters),
-      fetchRiders().then(setRiders),
-      fetchRiderLocations().then(setRiderLocations),
-    ]);
-  }, []);
-
-  const content = {
-    dashboard: <Dashboard  clients={clients} clusters={clusters} riders={riders} pickups={pickups}/>,
-    clients:   <ClientMaster clients={clients} setClients={setClients} clusters={clusters}/>,
-    clusters:  <ClusterBoard clients={clients} clusters={clusters} setClusters={setClusters} riders={riders}/>,
-    riders:    <RiderMgmt riders={riders} setRiders={setRiders} clusters={clusters} setClusters={setClusters}/>,
-    map:       <LiveMap    riders={riders} clusters={clusters} pickups={pickups} riderLocations={riderLocations}/>,
-    reports:   <Reports    clients={clients} clusters={clusters} riders={riders} pickups={pickups}/>,
-    roles:     <UserRoles/>,
-    users:     <UserManagement supabase={supabase}/>,
-  };
-
-  return (
-    <>
-      <GS/>
-      <div style={{ display:"flex", height:"100vh", overflow:"hidden", background:C.bg }}>
-        <Sidebar view={view} setView={setView} role={role} setRole={setRole} userRole={user?.role || 'rider'}/>
-        <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minWidth:0 }}>
-          <TopBar view={view} role={role} user={user} onLogout={onLogout}/>
-          <div style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"column" }}>
-            {content[view]}
-          </div>
-        </div>
-      </div>
-    </>
-  );
+  return <MainApp user={user} onLogout={() => setUser(null)} />;
 }
