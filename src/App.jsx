@@ -849,7 +849,7 @@ export default function PickupOSDesktop() {
   const [user, setUser] = useState(null);
 
   if (!user) {
-    return <LoginPage onLogin={setUser} supabase={supabase} />;
+    return <LoginPage onLogin={setUser} />;
   }
 
   return <MainApp user={user} onLogout={() => setUser(null)} />;
