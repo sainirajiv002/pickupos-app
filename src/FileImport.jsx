@@ -21,6 +21,7 @@ export default function FileImport({ supabase, onImportSuccess }) {
         .from('geofences')
         .select('name, id')
         .eq('type', 'client');
+
       return { clients: clients || [] };
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -30,11 +31,11 @@ export default function FileImport({ supabase, onImportSuccess }) {
 
   const validateRow = (row, rowIndex, existingClients) => {
     const errors = [];
-
+    
     if (!row.client_name || !row.client_name.trim()) {
       errors.push(`Row ${rowIndex}: Client name is required`);
     } else if (existingClients.length > 0) {
-      const clientExists = existingClients.find(c =>
+      const clientExists = existingClients.find(c => 
         c.name.toLowerCase().trim() === row.client_name.toLowerCase().trim()
       );
       if (!clientExists) {
@@ -106,14 +107,11 @@ export default function FileImport({ supabase, onImportSuccess }) {
       const { clients: existingClients } = await fetchExistingData();
       const text = await file.text();
       const lines = text.split('\n').filter(line => line.trim());
-
+      
       if (lines.length < 2) {
         setResult({
           success: false,
           message: "File is empty or has no data rows",
-          totalRows: 0,
-          validRows: 0,
-          errorRows: 0,
           errors: ["No data found in file"]
         });
         setUploading(false);
@@ -131,7 +129,7 @@ export default function FileImport({ supabase, onImportSuccess }) {
         headers.forEach((header, index) => {
           row[header] = values[index] || '';
         });
-
+        
         const rowErrors = validateRow(row, i + 1, existingClients);
         if (rowErrors.length > 0) {
           allErrors.push(...rowErrors);
@@ -144,7 +142,7 @@ export default function FileImport({ supabase, onImportSuccess }) {
 
       if (validRows.length > 0) {
         const batchId = crypto.randomUUID();
-
+        
         const assignments = validRows.map(row => {
           const [lat, lng] = row.lat_long.split(',').map(c => parseFloat(c.trim()));
           return {
@@ -155,8 +153,8 @@ export default function FileImport({ supabase, onImportSuccess }) {
             cutoff: row.cutoff,
             client_category: row.client_category,
             vehicle_no: row.vehicle_no,
-            lat,
-            lng,
+            lat: lat,
+            lng: lng,
             status: 'active',
             upload_batch_id: batchId,
             uploaded_by: 'admin',
@@ -170,13 +168,9 @@ export default function FileImport({ supabase, onImportSuccess }) {
 
         if (insertError) {
           console.error('Insert error:', insertError);
-          // ✅ FIX: include totalRows/validRows/errorRows so UI grid renders correctly
           setResult({
             success: false,
             message: `❌ Database Error: ${insertError.message}`,
-            totalRows: rows.length,
-            validRows: 0,
-            errorRows: rows.length,
             errors: [insertError.message]
           });
           setUploading(false);
@@ -203,11 +197,12 @@ export default function FileImport({ supabase, onImportSuccess }) {
           validRows: validRows.length,
           errorRows: 0
         });
+        
         if (onImportSuccess) onImportSuccess(validRows, pickupType);
       } else {
         setResult({
           success: validRows.length > 0,
-          message: validRows.length > 0
+          message: validRows.length > 0 
             ? `⚠️ Partial: ${validRows.length} valid, ${allErrors.length} errors`
             : `❌ Failed: ${allErrors.length} errors`,
           totalRows: rows.length,
@@ -221,9 +216,6 @@ export default function FileImport({ supabase, onImportSuccess }) {
       setResult({
         success: false,
         message: "❌ Error processing file",
-        totalRows: 0,
-        validRows: 0,
-        errorRows: 0,
         errors: [error.message]
       });
     }
@@ -275,7 +267,6 @@ export default function FileImport({ supabase, onImportSuccess }) {
         </p>
       </div>
 
-      {/* Pickup Type Selector */}
       <div style={{ background: "#fff", padding: 20, borderRadius: 12, border: "1px solid #E5E7EB", marginBottom: 20 }}>
         <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 8, display: "block" }}>
           Select Pickup Type
@@ -302,7 +293,6 @@ export default function FileImport({ supabase, onImportSuccess }) {
         </div>
       </div>
 
-      {/* File Upload */}
       <div style={{ background: "#fff", padding: 24, borderRadius: 12, border: "1px solid #E5E7EB", marginBottom: 20 }}>
         <div style={{ marginBottom: 16 }}>
           <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 8, display: "block" }}>
@@ -313,9 +303,6 @@ export default function FileImport({ supabase, onImportSuccess }) {
             accept=".csv"
             onChange={handleFileUpload}
             style={{
-              // ✅ FIX: box-sizing prevents the input from overflowing its container
-              // which was causing horizontal scroll and making sidebar tabs unclickable
-              boxSizing: "border-box",
               width: "100%",
               padding: 12,
               border: "2px dashed #D1D5DB",
@@ -379,7 +366,6 @@ export default function FileImport({ supabase, onImportSuccess }) {
         )}
       </div>
 
-      {/* Result Panel */}
       {result && (
         <div style={{
           background: result.success ? "#ECFDF5" : "#FEF2F2",
@@ -395,15 +381,15 @@ export default function FileImport({ supabase, onImportSuccess }) {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 16 }}>
             <div style={{ background: "#fff", padding: 12, borderRadius: 8 }}>
               <div style={{ fontSize: 11, color: "#6B7280", marginBottom: 4 }}>Total</div>
-              <div style={{ fontSize: 24, fontWeight: 800, color: "#111827" }}>{result.totalRows ?? 0}</div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: "#111827" }}>{result.totalRows}</div>
             </div>
             <div style={{ background: "#fff", padding: 12, borderRadius: 8 }}>
               <div style={{ fontSize: 11, color: "#6B7280", marginBottom: 4 }}>Valid</div>
-              <div style={{ fontSize: 24, fontWeight: 800, color: "#10B981" }}>{result.validRows ?? 0}</div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: "#10B981" }}>{result.validRows}</div>
             </div>
             <div style={{ background: "#fff", padding: 12, borderRadius: 8 }}>
               <div style={{ fontSize: 11, color: "#6B7280", marginBottom: 4 }}>Errors</div>
-              <div style={{ fontSize: 24, fontWeight: 800, color: "#EF4444" }}>{result.errorRows ?? 0}</div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: "#EF4444" }}>{result.errorRows}</div>
             </div>
           </div>
 
@@ -429,33 +415,30 @@ export default function FileImport({ supabase, onImportSuccess }) {
                 )}
               </div>
 
-              {result.errorData && (
-                <button
-                  onClick={downloadErrorFile}
-                  style={{
-                    padding: "10px 20px",
-                    background: "#EF4444",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: 8,
-                    fontSize: 14,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8
-                  }}
-                >
-                  <Download size={16} />
-                  Download Errors
-                </button>
-              )}
+              <button
+                onClick={downloadErrorFile}
+                style={{
+                  padding: "10px 20px",
+                  background: "#EF4444",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 8,
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8
+                }}
+              >
+                <Download size={16} />
+                Download Errors
+              </button>
             </>
           )}
         </div>
       )}
 
-      {/* Format Guide */}
       <div style={{ background: "#F9FAFB", padding: 20, borderRadius: 12, marginTop: 20 }}>
         <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, color: "#374151" }}>
           📋 CSV Format
