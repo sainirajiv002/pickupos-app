@@ -1,27 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { Home, Upload, Users, BarChart, MapPin } from 'lucide-react';
+import { Home, Upload, BarChart, Users, MapPin, LogOut } from 'lucide-react';
 import FileImport from './FileImport';
 
 // ═══════════════════ SUPABASE CONFIG ═══════════════════
-const supabase = createClient(
-  'https://ivkektiowfhmvkjwzgcz.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2a2VrdGlvd2ZobXZrand6Z2N6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3NTAzMDEsImV4cCI6MjA5MjMyNjMwMX0.5wt7bNO5Z0mFVTHi6X8Tj8nySy6WjAWCQ8z9cIKmUQw'
-);
+const SUPABASE_URL = 'https://ivkektiowfhmvkjwzgcz.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2a2VrdGlvd2ZobXZrand6Z2N6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3NTAzMDEsImV4cCI6MjA5MjMyNjMwMX0.5wt7bNO5Z0mFVTHi6X8Tj8nySy6WjAWCQ8z9cIKmUQw';
 
-/* ═══════════════════ MAIN APP ═══════════════════ */
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/* ═══════════════════ MAIN APP COMPONENT ═══════════════════ */
 export default function App() {
   const [currentPage, setCurrentPage] = useState('dashboard');
 
   const handleImportSuccess = (validRows, pickupType) => {
-    alert(`✅ Successfully uploaded ${validRows.length} ${pickupType} assignments!`);
-    // Refresh assignments if on that page
-    if (currentPage === 'assignments') {
-      setCurrentPage('assignments-refresh');
-      setTimeout(() => setCurrentPage('assignments'), 100);
-    }
+    alert(`✅ Success! Uploaded ${validRows.length} ${pickupType} assignments!`);
   };
 
+  // Navigation items
   const navigation = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
     { id: 'import', label: 'Daily Import', icon: Upload },
@@ -30,47 +26,38 @@ export default function App() {
     { id: 'map', label: 'Live Map', icon: MapPin },
   ];
 
+  // Page components
   const pages = {
-    dashboard: <Dashboard supabase={supabase} />,
+    dashboard: <DashboardPage />,
     import: <FileImport supabase={supabase} onImportSuccess={handleImportSuccess} />,
-    assignments: <Assignments supabase={supabase} />,
-    reports: <Reports supabase={supabase} />,
-    map: <LiveMap />,
+    assignments: <AssignmentsPage supabase={supabase} />,
+    reports: <ReportsPage />,
+    map: <MapPage />,
   };
 
   return (
-    <div style={{ display: 'flex', height: '100vh', background: '#F3F4F6' }}>
-      {/* Sidebar */}
+    <div style={{ display: 'flex', height: '100vh', background: '#F9FAFB' }}>
+      {/* Sidebar Navigation */}
       <div style={{
-        width: 256,
+        width: 250,
         background: '#fff',
         borderRight: '1px solid #E5E7EB',
+        padding: '24px 0',
         display: 'flex',
         flexDirection: 'column'
       }}>
         {/* Logo */}
-        <div style={{ padding: '24px 20px', borderBottom: '1px solid #E5E7EB' }}>
-          <h1 style={{ 
-            fontSize: 24, 
-            fontWeight: 700, 
-            margin: 0,
-            color: '#111827',
-            letterSpacing: '-0.5px'
-          }}>
+        <div style={{ padding: '0 24px', marginBottom: 32 }}>
+          <h1 style={{ fontSize: 24, fontWeight: 800, color: '#111827', margin: 0 }}>
             PickupOS
           </h1>
-          <p style={{ 
-            fontSize: 13, 
-            color: '#6B7280', 
-            margin: '4px 0 0 0',
-            fontWeight: 500
-          }}>
+          <p style={{ fontSize: 12, color: '#6B7280', margin: '4px 0 0 0' }}>
             Logistics Management
           </p>
         </div>
 
         {/* Navigation */}
-        <div style={{ flex: 1, padding: '16px 0' }}>
+        <div style={{ flex: 1 }}>
           {navigation.map(item => {
             const Icon = item.icon;
             const isActive = currentPage === item.id;
@@ -81,264 +68,150 @@ export default function App() {
                 onClick={() => setCurrentPage(item.id)}
                 style={{
                   width: '100%',
-                  padding: '12px 20px',
+                  padding: '12px 24px',
                   border: 'none',
-                  background: isActive ? '#F9FAFB' : 'transparent',
-                  color: isActive ? '#111827' : '#6B7280',
-                  fontSize: 15,
+                  background: isActive ? '#FEF3C7' : 'transparent',
+                  color: isActive ? '#92400E' : '#6B7280',
+                  fontSize: 14,
                   fontWeight: isActive ? 600 : 500,
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   gap: 12,
-                  transition: 'all 0.15s ease',
-                  borderLeft: isActive ? '3px solid #111827' : '3px solid transparent',
-                  textAlign: 'left'
+                  transition: 'all 0.2s',
+                  borderLeft: isActive ? '3px solid #F59E0B' : '3px solid transparent'
                 }}
                 onMouseEnter={(e) => {
-                  if (!isActive) {
-                    e.currentTarget.style.background = '#F9FAFB';
-                    e.currentTarget.style.color = '#111827';
-                  }
+                  if (!isActive) e.currentTarget.style.background = '#F9FAFB';
                 }}
                 onMouseLeave={(e) => {
-                  if (!isActive) {
-                    e.currentTarget.style.background = 'transparent';
-                    e.currentTarget.style.color = '#6B7280';
-                  }
+                  if (!isActive) e.currentTarget.style.background = 'transparent';
                 }}
               >
-                <Icon size={20} strokeWidth={2} />
+                <Icon size={18} />
                 {item.label}
               </button>
             );
           })}
         </div>
 
-        {/* Footer */}
-        <div style={{ 
-          padding: '16px 20px', 
-          borderTop: '1px solid #E5E7EB',
-          fontSize: 13,
-          color: '#6B7280'
-        }}>
-          Logged in as Admin
+        {/* User Info */}
+        <div style={{ padding: '0 24px', borderTop: '1px solid #E5E7EB', paddingTop: 16 }}>
+          <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 8 }}>
+            Logged in as Admin
+          </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div style={{ flex: 1, overflow: 'auto', background: '#F3F4F6' }}>
-        {pages[currentPage] || pages.dashboard}
+      <div style={{ flex: 1, overflow: 'auto' }}>
+        {pages[currentPage]}
       </div>
     </div>
   );
 }
 
-/* ═══════════════════ DASHBOARD PAGE ═══════════════════ */
-function Dashboard({ supabase }) {
-  const [stats, setStats] = useState({
-    total: 0,
-    active: 0,
-    completed: 0,
-    pending: 0
-  });
+/* ═══════════════════ PAGE COMPONENTS ═══════════════════ */
 
-  useEffect(() => {
-    fetchStats();
-  }, []);
-
-  const fetchStats = async () => {
-    try {
-      const { data: assignments } = await supabase
-        .from('assignments')
-        .select('status')
-        .gte('assigned_at', new Date().toISOString().split('T')[0]);
-
-      if (assignments) {
-        setStats({
-          total: assignments.length,
-          active: assignments.filter(a => a.status === 'active').length,
-          completed: assignments.filter(a => a.status.includes('completed') || a.status.includes('reached_origin')).length,
-          pending: assignments.filter(a => a.status === 'active').length
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching stats:', error);
-    }
-  };
-
+function DashboardPage() {
   return (
-    <div style={{ padding: 32 }}>
-      <div style={{ marginBottom: 32 }}>
-        <h2 style={{ 
-          fontSize: 28, 
-          fontWeight: 700, 
-          margin: 0, 
-          marginBottom: 8,
-          color: '#111827'
-        }}>
-          Dashboard
-        </h2>
-        <p style={{ 
-          fontSize: 15, 
-          color: '#6B7280', 
-          margin: 0 
-        }}>
-          Overview of today's operations
-        </p>
-      </div>
+    <div style={{ padding: 24 }}>
+      <h2 style={{ fontSize: 24, fontWeight: 800, color: '#111827', marginBottom: 8 }}>
+        Dashboard
+      </h2>
+      <p style={{ color: '#6B7280', marginBottom: 24 }}>
+        Overview of today's operations
+      </p>
 
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', 
-        gap: 20 
-      }}>
-        <StatCard 
-          title="Total Assignments" 
-          value={stats.total} 
-          color="#3B82F6"
-          bg="#EFF6FF"
-        />
-        <StatCard 
-          title="Active Riders" 
-          value={stats.active} 
-          color="#10B981"
-          bg="#ECFDF5"
-        />
-        <StatCard 
-          title="Completed" 
-          value={stats.completed} 
-          color="#F59E0B"
-          bg="#FEF3C7"
-        />
-        <StatCard 
-          title="Pending" 
-          value={stats.pending} 
-          color="#EF4444"
-          bg="#FEE2E2"
-        />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }}>
+        <StatCard title="Total Assignments" value="0" color="#3B82F6" />
+        <StatCard title="Active Riders" value="0" color="#10B981" />
+        <StatCard title="Completed" value="0" color="#F59E0B" />
+        <StatCard title="Pending" value="0" color="#EF4444" />
       </div>
     </div>
   );
 }
 
-function StatCard({ title, value, color, bg }) {
+function StatCard({ title, value, color }) {
   return (
     <div style={{
       background: '#fff',
-      padding: 24,
+      padding: 20,
       borderRadius: 12,
-      border: '1px solid #E5E7EB',
-      boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+      border: '1px solid #E5E7EB'
     }}>
-      <div style={{ 
-        fontSize: 13, 
-        color: '#6B7280', 
-        marginBottom: 12,
-        fontWeight: 500,
-        textTransform: 'uppercase',
-        letterSpacing: '0.5px'
-      }}>
-        {title}
-      </div>
-      <div style={{ 
-        fontSize: 36, 
-        fontWeight: 700, 
-        color,
-        fontVariantNumeric: 'tabular-nums'
-      }}>
-        {value}
-      </div>
+      <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 8 }}>{title}</div>
+      <div style={{ fontSize: 32, fontWeight: 800, color }}>{value}</div>
     </div>
   );
 }
 
-/* ═══════════════════ ASSIGNMENTS PAGE ═══════════════════ */
-function Assignments({ supabase }) {
-  const [assignments, setAssignments] = useState([]);
-  const [loading, setLoading] = useState(true);
+function AssignmentsPage({ supabase }) {
+  const [assignments, setAssignments] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
 
-  useEffect(() => {
+  React.useEffect(() => {
     fetchAssignments();
   }, []);
 
   const fetchAssignments = async () => {
     setLoading(true);
-    try {
-      const { data } = await supabase
-        .from('assignments')
-        .select('*')
-        .order('assigned_at', { ascending: false })
-        .limit(100);
+    const { data, error } = await supabase
+      .from('assignments')
+      .select('*')
+      .order('assigned_at', { ascending: false })
+      .limit(50);
 
+    if (error) {
+      console.error('Error fetching assignments:', error);
+    } else {
       setAssignments(data || []);
-    } catch (error) {
-      console.error('Error:', error);
     }
     setLoading(false);
   };
 
   return (
-    <div style={{ padding: 32 }}>
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        marginBottom: 24 
-      }}>
+    <div style={{ padding: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div>
-          <h2 style={{ 
-            fontSize: 28, 
-            fontWeight: 700, 
-            margin: 0, 
-            marginBottom: 8,
-            color: '#111827'
-          }}>
+          <h2 style={{ fontSize: 24, fontWeight: 800, color: '#111827', marginBottom: 8 }}>
             Assignments
           </h2>
-          <p style={{ fontSize: 15, color: '#6B7280', margin: 0 }}>
-            {assignments.length} total assignments
+          <p style={{ color: '#6B7280', margin: 0 }}>
+            View all rider assignments
           </p>
         </div>
         <button
           onClick={fetchAssignments}
           style={{
             padding: '10px 20px',
-            background: '#111827',
+            background: '#F59E0B',
             color: '#fff',
             border: 'none',
             borderRadius: 8,
             fontSize: 14,
             fontWeight: 600,
-            cursor: 'pointer',
-            transition: 'all 0.15s'
+            cursor: 'pointer'
           }}
-          onMouseEnter={(e) => e.currentTarget.style.background = '#374151'}
-          onMouseLeave={(e) => e.currentTarget.style.background = '#111827'}
         >
           Refresh
         </button>
       </div>
 
       {loading ? (
-        <div style={{ 
-          background: '#fff', 
-          padding: 60, 
-          borderRadius: 12,
-          textAlign: 'center',
-          color: '#6B7280'
-        }}>
-          Loading...
+        <div style={{ textAlign: 'center', padding: 40, color: '#6B7280' }}>
+          Loading assignments...
         </div>
       ) : assignments.length === 0 ? (
         <div style={{
           background: '#fff',
-          padding: 60,
+          padding: 40,
           borderRadius: 12,
           border: '1px solid #E5E7EB',
           textAlign: 'center'
         }}>
-          <p style={{ color: '#6B7280', margin: 0, fontSize: 15 }}>
+          <p style={{ color: '#6B7280', margin: 0 }}>
             No assignments found. Upload some using Daily Import!
           </p>
         </div>
@@ -352,45 +225,43 @@ function Assignments({ supabase }) {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#F9FAFB', borderBottom: '1px solid #E5E7EB' }}>
-                <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 12, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Client</th>
-                <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 12, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Rider</th>
-                <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 12, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Type</th>
-                <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 12, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</th>
-                <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: 12, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Cutoff</th>
+                <th style={{ padding: 12, textAlign: 'left', fontSize: 12, fontWeight: 600, color: '#6B7280' }}>Client</th>
+                <th style={{ padding: 12, textAlign: 'left', fontSize: 12, fontWeight: 600, color: '#6B7280' }}>Rider</th>
+                <th style={{ padding: 12, textAlign: 'left', fontSize: 12, fontWeight: 600, color: '#6B7280' }}>Type</th>
+                <th style={{ padding: 12, textAlign: 'left', fontSize: 12, fontWeight: 600, color: '#6B7280' }}>Status</th>
+                <th style={{ padding: 12, textAlign: 'left', fontSize: 12, fontWeight: 600, color: '#6B7280' }}>Cutoff</th>
               </tr>
             </thead>
             <tbody>
-              {assignments.map((a, idx) => (
-                <tr key={a.id} style={{ 
-                  borderBottom: idx < assignments.length - 1 ? '1px solid #F3F4F6' : 'none'
-                }}>
-                  <td style={{ padding: '16px', fontSize: 14, color: '#111827', fontWeight: 500 }}>{a.client_name}</td>
-                  <td style={{ padding: '16px', fontSize: 14, color: '#6B7280' }}>{a.rider_name || a.rider_id}</td>
-                  <td style={{ padding: '16px' }}>
+              {assignments.map((assignment, idx) => (
+                <tr key={assignment.id} style={{ borderBottom: idx < assignments.length - 1 ? '1px solid #E5E7EB' : 'none' }}>
+                  <td style={{ padding: 12, fontSize: 14, color: '#111827' }}>{assignment.client_name}</td>
+                  <td style={{ padding: 12, fontSize: 14, color: '#111827' }}>{assignment.rider_name || assignment.rider_id}</td>
+                  <td style={{ padding: 12, fontSize: 14 }}>
                     <span style={{
-                      padding: '4px 10px',
+                      padding: '4px 8px',
                       borderRadius: 6,
                       fontSize: 12,
                       fontWeight: 600,
-                      background: a.pickup_type === 'SDD' ? '#DBEAFE' : a.pickup_type === 'AIR' ? '#FEF3C7' : '#E0E7FF',
-                      color: a.pickup_type === 'SDD' ? '#1E40AF' : a.pickup_type === 'AIR' ? '#92400E' : '#3730A3'
+                      background: assignment.pickup_type === 'SDD' ? '#DBEAFE' : assignment.pickup_type === 'AIR' ? '#FEF3C7' : '#E0E7FF',
+                      color: assignment.pickup_type === 'SDD' ? '#1E40AF' : assignment.pickup_type === 'AIR' ? '#92400E' : '#3730A3'
                     }}>
-                      {a.pickup_type}
+                      {assignment.pickup_type}
                     </span>
                   </td>
-                  <td style={{ padding: '16px' }}>
+                  <td style={{ padding: 12, fontSize: 14 }}>
                     <span style={{
-                      padding: '4px 10px',
+                      padding: '4px 8px',
                       borderRadius: 6,
                       fontSize: 12,
                       fontWeight: 600,
-                      background: '#ECFDF5',
-                      color: '#065F46'
+                      background: assignment.status === 'active' ? '#ECFDF5' : '#F3F4F6',
+                      color: assignment.status === 'active' ? '#065F46' : '#6B7280'
                     }}>
-                      {a.status}
+                      {assignment.status}
                     </span>
                   </td>
-                  <td style={{ padding: '16px', fontSize: 14, color: '#6B7280' }}>{a.cutoff}</td>
+                  <td style={{ padding: 12, fontSize: 14, color: '#6B7280' }}>{assignment.cutoff}</td>
                 </tr>
               ))}
             </tbody>
@@ -401,65 +272,51 @@ function Assignments({ supabase }) {
   );
 }
 
-/* ═══════════════════ REPORTS PAGE ═══════════════════ */
-function Reports({ supabase }) {
+function ReportsPage() {
   return (
-    <div style={{ padding: 32 }}>
-      <h2 style={{ 
-        fontSize: 28, 
-        fontWeight: 700, 
-        margin: 0, 
-        marginBottom: 8,
-        color: '#111827'
-      }}>
+    <div style={{ padding: 24 }}>
+      <h2 style={{ fontSize: 24, fontWeight: 800, color: '#111827', marginBottom: 8 }}>
         Reports
       </h2>
-      <p style={{ fontSize: 15, color: '#6B7280', marginBottom: 32 }}>
-        Generate and download reports
+      <p style={{ color: '#6B7280', marginBottom: 24 }}>
+        Generate and view reports
       </p>
 
       <div style={{
         background: '#fff',
-        padding: 60,
+        padding: 40,
         borderRadius: 12,
         border: '1px solid #E5E7EB',
         textAlign: 'center'
       }}>
-        <p style={{ color: '#6B7280', margin: 0, fontSize: 15 }}>
-          Reports feature coming soon
+        <p style={{ color: '#6B7280', margin: 0 }}>
+          Reports feature coming soon!
         </p>
       </div>
     </div>
   );
 }
 
-/* ═══════════════════ LIVE MAP PAGE ═══════════════════ */
-function LiveMap() {
+function MapPage() {
   return (
-    <div style={{ padding: 32 }}>
-      <h2 style={{ 
-        fontSize: 28, 
-        fontWeight: 700, 
-        margin: 0, 
-        marginBottom: 8,
-        color: '#111827'
-      }}>
+    <div style={{ padding: 24 }}>
+      <h2 style={{ fontSize: 24, fontWeight: 800, color: '#111827', marginBottom: 8 }}>
         Live Map
       </h2>
-      <p style={{ fontSize: 15, color: '#6B7280', marginBottom: 32 }}>
+      <p style={{ color: '#6B7280', marginBottom: 24 }}>
         Track riders in real-time
       </p>
 
       <div style={{
         background: '#fff',
-        padding: 60,
+        padding: 40,
         borderRadius: 12,
         border: '1px solid #E5E7EB',
         textAlign: 'center',
-        minHeight: 500
+        height: 500
       }}>
-        <p style={{ color: '#6B7280', margin: 0, fontSize: 15 }}>
-          Live map view coming soon
+        <p style={{ color: '#6B7280', margin: 0 }}>
+          Map view coming soon!
         </p>
       </div>
     </div>
